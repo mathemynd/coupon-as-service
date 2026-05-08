@@ -7,7 +7,7 @@ module.exports = {
 			return next();
 		}
 		else {
-			return res.json(401, 'Unauthorized');
+			return res.status(401).json('Unauthorized');
 		}
 	}
 
