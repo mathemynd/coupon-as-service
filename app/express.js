@@ -10,7 +10,10 @@ var cors = require('cors');
 
 module.exports = function (app, config) {
 
-	app.use(logger('dev'));
+	// Only use morgan in development, not in test
+	if (app.get('env') !== 'test') {
+		app.use(logger('dev'));
+	}
 	app.use(bodyParser.json());
 	app.use(bodyParser.urlencoded({
 		extended: true

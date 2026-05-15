@@ -42,7 +42,6 @@ module.exports = {
 			}
 			req.body.coupon = coupons[0]._id;
 			await Discount.updateOne({ code: req.body.code, user: req.body.user }, { $set: req.body }, { upsert: true });
-			console.log('Applied discount %s to user %s.', req.body.code, req.body.user);
 			return res.json(req.body);
 		} catch (err) {
 			return res.status(400).json(err);

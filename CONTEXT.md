@@ -14,7 +14,7 @@ REST API service for discount coupons/vouchers built with Node.js, Express, and 
 | Web Framework | Express | ^4.22.1 |
 | Database | MongoDB | - |
 | ODM | Mongoose | ^9.6.1 |
-| Testing | Tape + Supertest | ^4.4.0 / ^7.2.2 |
+| Testing | Vitest + Supertest | ^4.1.6 / ^7.2.2 |
 | Process Manager | Grunt | ^1.6.2 |
 
 ### Directory Structure
@@ -225,40 +225,78 @@ Server will start on **http://localhost:3014** (development).
 ### Running Tests
 
 ```bash
-# Set password and run tests
+# Run all tests
 API_PASSWORD=testpass npm test
+
+# Run in watch mode
+API_PASSWORD=testpass npm run test:watch
+
+# Run with coverage
+API_PASSWORD=testpass npm run test:coverage
 
 # Or with NODE_ENV
 API_PASSWORD=testpass NODE_ENV=test npm test
 ```
 
-### Test Structure (`test/app.js`)
+### Test Structure
 
-Uses **Tape** (minimal TAP-producing test framework) + **Supertest** (HTTP assertions).
+Uses **Vitest** (modern test runner) + **Supertest** (HTTP assertions).
 
-**Current tests:**
-- `Correct coupons returned` - Verifies GET /api/coupons returns 200 with coupon list
+**Test files:**
+- `test/coupons.test.js` - Coupon CRUD operations (23 tests)
+- `test/discounts.test.js` - Discount CRUD operations (17 tests)
+- `test/integration.test.js` - Integration and end-to-end tests (8 tests)
+
+**Total: 48 tests** covering:
+- All CRUD operations for coupons and discounts
+- Authentication (401 errors)
+- Email-based coupon lookup
+- Filtering (discounts `from` parameter)
+- Error handling (404 errors)
+- Full lifecycle integration tests
 
 **Example test:**
 ```javascript
-var test = require('tape');
-var request = require('supertest');
+const request = require('supertest');
+const app = require('../app/app');
 
-test('Correct coupons returned', function (t) {
-  var app = require('../app/app');
-  request(app)
+test('GET /api/coupons returns coupon list', async () => {
+  const res = await request(app)
     .get('/api/coupons?password=' + process.env.API_PASSWORD)
     .expect('Content-Type', /json/)
-    .expect(200)
-    .end(function (err, res) {
-      t.error(err, 'No error');
-      t.ok(res.body.length, 'Returned coupons list');
-      t.ok(res.body[0].code, 'Coupon #0 existed');
-      t.end();
-      app.closeDatabase();
-    });
+    .expect(200);
+  
+  expect(res.body).toBeInstanceOf(Array);
+  expect(res.body.length).toBeGreaterThan(0);
+  expect(res.body[0]).toHaveProperty('code');
 });
 ```
+
+### Test Configuration
+
+**vitest.config.js:**
+```javascript
+module.exports = {
+  test: {
+    globals: true,
+    environment: 'node',
+    testTimeout: 10000,
+    hookTimeout: 10000,
+    fileParallelism: false,  // Run test files serially (shared DB)
+    pool: 'forks',
+    maxForks: 1,
+    minForks: 1,
+  },
+};
+```
+
+**Why Vitest?**
+- Modern, fast, and future-proof
+- Jest-compatible API
+- Native ESM support
+- Built-in coverage
+- Excellent TypeScript support (for future migration)
+- Watch mode for development
 
 ### Manual API Testing
 
@@ -393,7 +431,6 @@ isAuthenticated: function (req, res, next) {
    - No check if coupon is expired before applying discount
 
 3. **Discount application:**
-   - No validation that coupon exists before creating discount (actually does check)
    - No check for `max_redemptions` limit
    - No check for `redeem_by` date
    - Email-based coupons not resolved when applying discount
@@ -410,6 +447,7 @@ isAuthenticated: function (req, res, next) {
 2. ✅ **Email lookup not implemented** - Now works with `@email` format
 3. ✅ **Discounts `from` filter broken** - Changed `dateCreated` to `start` field
 4. ✅ **Compression middleware** - Disabled due to serialization conflicts
+5. ✅ **Migrated from Tape to Vitest** - Modern test framework with 48 comprehensive tests
 
 ## Deployment
 

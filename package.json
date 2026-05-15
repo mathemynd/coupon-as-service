@@ -2,9 +2,12 @@
   "name": "coupon-as-service",
   "version": "0.1.0",
   "private": true,
+  "type": "commonjs",
   "scripts": {
     "start": "node app/server.js",
-    "test": "node test/app.js"
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage"
   },
   "dependencies": {
     "body-parser": "^1.20.5",
@@ -28,7 +31,7 @@
     "load-grunt-tasks": "^5.1.0",
     "request": "~2.36.0",
     "supertest": "^7.2.2",
-    "tape": "^4.4.0",
-    "time-grunt": "~0.3.2"
+    "time-grunt": "~0.3.2",
+    "vitest": "^4.1.6"
   }
 }
