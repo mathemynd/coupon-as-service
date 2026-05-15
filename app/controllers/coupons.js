@@ -6,10 +6,11 @@ var mongoose = require('mongoose');
 var Coupon = mongoose.model('Coupon');
 
 var cleanUpCoupon = function (coupon) {
-	delete coupon['_id'];
-	delete coupon['__v'];
-	coupon.id = coupon.code; // to mirror Stripe API
-	return coupon;
+	var obj = coupon.toObject ? coupon.toObject() : coupon;
+	delete obj['_id'];
+	delete obj['__v'];
+	obj.id = obj.code;
+	return obj;
 };
 
 module.exports = {
@@ -31,7 +32,9 @@ module.exports = {
 		try {
 			var searchQuery = {};
 			if (req.params.id.indexOf('@') !== -1) {
-				// TODO: make email search work
+				// Email-based coupon: strip @ and search by email field
+				var email = req.params.id.substring(1); // Remove @ prefix
+				searchQuery.email = email;
 			}
 			else {
 				searchQuery.code = req.params.id.toUpperCase();

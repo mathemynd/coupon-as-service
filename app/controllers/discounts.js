@@ -13,9 +13,9 @@ module.exports = {
 			var searchQuery = {};
 			if (req.query.from) {
 				var currentTime = new Date();
-				searchQuery = { dateCreated: { "$gte": new Date(req.query.from), "$lt": currentTime } };
+				searchQuery = { start: { "$gte": new Date(req.query.from), "$lt": currentTime } };
 			}
-			var discounts = await Discount.find(searchQuery, null, { sort: {dateCreated: -1} });
+			var discounts = await Discount.find(searchQuery, null, { sort: {start: -1} }).lean().exec();
 			return res.json(discounts);
 		} catch (err) {
 			return res.status(400).json(err);
@@ -25,7 +25,7 @@ module.exports = {
 	// Show a Discount
 	read: async function (req, res, next) {
 		try {
-			var discount = await Discount.findById(req.params.id);
+			var discount = await Discount.findById(req.params.id).lean().exec();
 			return res.json(discount);
 		} catch (err) {
 			return res.status(400).json(err);

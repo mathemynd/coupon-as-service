@@ -16,7 +16,7 @@ module.exports = function (app, config) {
 		extended: true
 	}));
 	app.use(cookieParser());
-	app.use(compress());
+	// app.use(compress()); // Disabled: causes response hanging with Mongoose documents
 	app.use(methodOverride());
 	app.use(cors());
 
