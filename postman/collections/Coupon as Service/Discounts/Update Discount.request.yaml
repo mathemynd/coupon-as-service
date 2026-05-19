@@ -1,0 +1,18 @@
+$kind: http-request
+name: Update Discount
+method: PUT
+url: '{{baseUrl}}/api/discounts/{{discountId}}'
+order: 5000
+queryParams:
+  - key: password
+    value: '{{password}}'
+headers:
+  - key: Content-Type
+    value: application/json
+body:
+  type: json
+  content: |-
+    {
+      "end": "2025-12-31T00:00:00.000Z"
+    }
+description: Update a discount by its MongoDB ObjectId.

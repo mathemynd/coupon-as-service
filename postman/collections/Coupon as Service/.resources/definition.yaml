@@ -1,0 +1,7 @@
+$kind: collection
+name: Coupon as Service
+variables:
+  - key: baseUrl
+    value: 'http://localhost:3014'
+  - key: password
+    value: testpass

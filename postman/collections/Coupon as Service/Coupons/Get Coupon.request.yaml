@@ -1,0 +1,9 @@
+$kind: http-request
+name: Get Coupon
+method: GET
+url: '{{baseUrl}}/api/coupons/{{couponCode}}'
+order: 2000
+queryParams:
+  - key: password
+    value: '{{password}}'
+description: 'Get a coupon by code. Use `@email.com` format to look up by email domain (e.g. `@mit.edu`).'

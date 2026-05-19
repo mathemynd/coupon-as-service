@@ -1,0 +1,18 @@
+$kind: http-request
+name: Update Coupon
+method: PUT
+url: '{{baseUrl}}/api/coupons/{{couponCode}}'
+order: 5000
+queryParams:
+  - key: password
+    value: '{{password}}'
+headers:
+  - key: Content-Type
+    value: application/json
+body:
+  type: json
+  content: |-
+    {
+      "max_redemptions": 100
+    }
+description: Update a coupon by its code.

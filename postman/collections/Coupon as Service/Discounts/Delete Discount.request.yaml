@@ -1,0 +1,9 @@
+$kind: http-request
+name: Delete Discount
+method: DELETE
+url: '{{baseUrl}}/api/discounts/{{discountId}}'
+order: 6000
+queryParams:
+  - key: password
+    value: '{{password}}'
+description: 'Delete a discount by its MongoDB ObjectId. Use `ALL` as the ID to delete all discounts.'

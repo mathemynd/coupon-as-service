@@ -1,0 +1,20 @@
+$kind: http-request
+name: Create Coupon
+method: POST
+url: '{{baseUrl}}/api/coupons'
+order: 3000
+queryParams:
+  - key: password
+    value: '{{password}}'
+headers:
+  - key: Content-Type
+    value: application/json
+body:
+  type: json
+  content: |-
+    {
+      "code": "SAVE20",
+      "percent_off": 20,
+      "duration": "once"
+    }
+description: 'Create a new coupon. If `code` is not provided, one is auto-generated. Fields: `code` (unique, uppercase), `email` (for email-domain coupons), `duration` (once/forever/repeating), `duration_in_months`, `redeem_by`, `max_redemptions`, `percent_off`, `amount_off`, `currency`, `metadata`.'

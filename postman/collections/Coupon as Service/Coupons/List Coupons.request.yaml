@@ -1,0 +1,9 @@
+$kind: http-request
+name: List Coupons
+method: GET
+url: '{{baseUrl}}/api/coupons'
+order: 1000
+queryParams:
+  - key: password
+    value: '{{password}}'
+description: List all coupons, sorted by code.
