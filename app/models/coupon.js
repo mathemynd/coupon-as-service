@@ -9,16 +9,13 @@ var CouponSchema = new Schema({
 	code: { type: String, unique: true, sparse: true },
 	email: { type: String, unique: true, sparse: true },
 	// Constraints:
-	duration: { type: String, default: 'once' },
-	duration_in_months: Number,
 	redeem_by: Date,
 	max_redemptions: Number,
 	times_redeemed: { type: Number, default: 0 },
 	// Reward:
 	percent_off: Number,
 	amount_off: Number,
-	currency: String,
-	metadata: {},
+	currency: String
 });
 
 mongoose.model('Coupon', CouponSchema);

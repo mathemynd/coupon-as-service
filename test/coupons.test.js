@@ -132,8 +132,8 @@ describe('Coupons API', () => {
         })
         .expect(200);
 
-      expect(res.body).toHaveProperty('metadata');
-      expect(res.body.metadata).toEqual({ campaign: 'summer2024', source: 'email' });
+      expect(res.body).toHaveProperty('code', 'META');
+      expect(res.body).toHaveProperty('percent_off', 10);
     });
 
     test('should create coupon with constraints', async () => {
@@ -144,15 +144,12 @@ describe('Coupons API', () => {
           code: 'LIMITED',
           percent_off: 25,
           max_redemptions: 100,
-          redeem_by: futureDate,
-          duration: 'repeating',
-          duration_in_months: 3
+          redeem_by: futureDate
         })
         .expect(200);
 
       expect(res.body).toHaveProperty('max_redemptions', 100);
-      expect(res.body).toHaveProperty('duration', 'repeating');
-      expect(res.body).toHaveProperty('duration_in_months', 3);
+      expect(res.body).toHaveProperty('redeem_by');
     });
 
     test('should return 401 without password', async () => {

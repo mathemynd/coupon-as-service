@@ -29,6 +29,4 @@ module.exports = function (app, config) {
 	router.put('/api/discounts/:id', authController.isAuthenticated, discountsController.update);
 	router.delete('/api/discounts/:id', authController.isAuthenticated, discountsController.delete);
 
-	//router.get('/', startController.index);
-
 };

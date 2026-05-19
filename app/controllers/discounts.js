@@ -40,7 +40,6 @@ module.exports = {
 			if (coupons.length === 0) {
 				return res.status(404).json('Coupon ‘' + couponCode.toUpperCase() + '’ not found');
 			}
-			req.body.coupon = coupons[0]._id;
 			await Discount.updateOne({ code: req.body.code, user: req.body.user }, { $set: req.body }, { upsert: true });
 			return res.json(req.body);
 		} catch (err) {

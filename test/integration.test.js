@@ -91,7 +91,6 @@ describe('Integration Tests', () => {
 
       expect(discountRes.body.user).toBe('testuser123');
       expect(discountRes.body.code).toBe('FLOWTEST');
-      expect(discountRes.body).toHaveProperty('coupon');
 
       // Verify discount exists
       const listRes = await request(app)
@@ -199,26 +198,15 @@ describe('Integration Tests', () => {
         .send({
           code: 'FULLFEATURED',
           percent_off: 25,
-          duration: 'repeating',
-          duration_in_months: 6,
           max_redemptions: 1000,
           redeem_by: futureDate,
-          metadata: {
-            campaign: 'black-friday',
-            segment: 'premium',
-          },
         })
         .expect(200);
 
       expect(res.body.code).toBe('FULLFEATURED');
       expect(res.body.percent_off).toBe(25);
-      expect(res.body.duration).toBe('repeating');
-      expect(res.body.duration_in_months).toBe(6);
       expect(res.body.max_redemptions).toBe(1000);
-      expect(res.body.metadata).toEqual({
-        campaign: 'black-friday',
-        segment: 'premium',
-      });
+      expect(res.body.redeem_by).toBeDefined();
     });
   });
 });

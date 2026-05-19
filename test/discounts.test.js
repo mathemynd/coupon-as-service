@@ -115,7 +115,6 @@ describe('Discounts API', () => {
 
       expect(res.body).toHaveProperty('code', 'DISCOUNT10');
       expect(res.body).toHaveProperty('user', 'user123');
-      expect(res.body).toHaveProperty('coupon');
     });
 
     test('should upsert discount (update if exists)', async () => {
