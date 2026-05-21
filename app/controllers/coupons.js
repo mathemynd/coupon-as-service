@@ -112,6 +112,57 @@ module.exports = {
 		}
 	},
 
+	// Redeem a Coupon
+	redeem: async function (req, res, next) {
+		try {
+			var coupon = await prisma.coupon.findFirst({
+				where: { code: req.params.code.toUpperCase(), is_deleted: false }
+			});
+
+			if (!coupon) {
+				return res.status(404).json('Coupon not found');
+			}
+
+			if (coupon.status !== 'active') {
+				return res.status(400).json('Coupon is not active');
+			}
+
+			var now = new Date();
+			if (coupon.start_date && now < new Date(coupon.start_date)) {
+				return res.status(400).json('Coupon is not yet valid');
+			}
+			if (coupon.end_date && now > new Date(coupon.end_date)) {
+				return res.status(400).json('Coupon has expired');
+			}
+
+			var latestUsage = await prisma.couponUsage.findFirst({
+				where: { code: coupon.code, is_deleted: false },
+				orderBy: { redeemed_at: 'desc' }
+			});
+
+			var currentCount = latestUsage ? latestUsage.redemption_count : 0;
+
+			if (coupon.coupon_usage_type === 'single_use' && currentCount >= 1) {
+				return res.status(400).json('Coupon has already been redeemed');
+			}
+			if (coupon.coupon_usage_type === 'multi_use' && currentCount >= coupon.max_redemptions) {
+				return res.status(400).json('Coupon has reached maximum redemptions');
+			}
+
+			var usage = await prisma.couponUsage.create({
+				data: {
+					code: coupon.code,
+					redemption_count: currentCount + 1,
+					metadata: req.body.metadata || undefined
+				}
+			});
+
+			return res.json(usage);
+		} catch (err) {
+			return res.status(400).json(err);
+		}
+	},
+
 	// Soft delete a Coupon
 	delete: async function (req, res, next) {
 		try {
