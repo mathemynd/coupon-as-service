@@ -1,14 +1,30 @@
+enum CouponUsageType {
+  single_use
+  multi_use
+  unlimited
+}
+
+enum CouponStatus {
+  draft
+  active
+  retired
+}
+
 model Coupon {
-  id              Int       @id @default(autoincrement())
-  created         DateTime  @default(now())
-  code            String?   @unique
-  email           String?   @unique
-  redeem_by       DateTime?
-  max_redemptions Int?
-  times_redeemed  Int       @default(0)
-  percent_off     Float?
-  amount_off      Float?
-  currency        String?
+  id                Int              @id @default(autoincrement())
+  created_date      DateTime         @default(now())
+  updated_date      DateTime         @updatedAt
+  is_deleted        Boolean          @default(false)
+
+  code              String           @unique
+  version           String           @default("1.0")
+  coupon_usage_type CouponUsageType
+  status            CouponStatus     @default(draft)
+  max_redemptions   Int?
+  times_redeemed    Int              @default(0)
+  start_date        DateTime?
+  end_date          DateTime?
+  metadata          Json?
 
   @@map("coupons")
 }
