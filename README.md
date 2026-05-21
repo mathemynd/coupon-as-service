@@ -4,21 +4,36 @@ REST API service for discount coupons/vouchers, built in Node.js.
 
 ## How to Run
 
-Just start with:
+Prerequisites: Docker
+
+	# Start PostgreSQL
+	docker compose up -d
+
+	# Install dependencies
+	npm install
+
+	# Push database schema
+	npx prisma db push
 
 	# Set password used in API requests
 	export API_PASSWORD=MYPASSWORD
 
-	grunt
+	# Start server
+	npm start
 
 Server will default to **http://localhost:3014**
 
+## Testing
+
+	npm test
+
+Tests run against a separate PostgreSQL instance on port 5433.
 
 ## Entities
 
 ### Coupon
 
-* `_id` (string)
+* `id` (string): same as `code`
 * `created` (date)
 
 **Qualifiers:**
@@ -28,29 +43,23 @@ Server will default to **http://localhost:3014**
 
 **Constraints:**
 
-* `duration` (string): One of 'forever', 'once', and 'repeating'. Describes how long a customer who applies this coupon will get the discount.
-* `duration_in_months` (positive integer): If duration is 'repeating', the number of months the coupon applies. Null if coupon duration is forever or once.
-* `duration_ends` (_read-only_ date): If duration is 'repeating', this is the end date.
 * `redeem_by` (date): Date after which the coupon can no longer be redeemed
 * `max_redemptions` (positive integer): Maximum number of times this coupon can be redeemed, in total, before it is no longer valid.
-* `times_redeemed` (_read-only_ positive integer) or zero: Number of times this coupon has been applied to a customer.
-* `valid` (_read-only_ boolean): Taking account of the above properties, whether this coupon can still be applied to a customer
+* `times_redeemed` (positive integer or zero): Number of times this coupon has been applied to a customer.
 
 **What is rewarded:**
 
-* `percent_off` (positive integer): Percent that will be taken off the subtotal of any invoices for this customer for the duration of the coupon. For example, a coupon with percent_off of 50 will make a kr100 invoice kr50 instead.
-* `amount_off` (positive integer): Amount (in the currency specified) that will be taken off the subtotal of any invoices for this customer.
-* `currency` (currency): If amount_off has been set, the currency of the amount to take off.
-* `metadata`: A set of key/value pairs that you can attach to a coupon object. It can be useful for storing additional information about the coupon in a structured format.
+* `percent_off` (number): Percent that will be taken off the subtotal of any invoices for this customer for the duration of the coupon. For example, a coupon with percent_off of 50 will make a kr100 invoice kr50 instead.
+* `amount_off` (number): Amount (in the currency specified) that will be taken off the subtotal of any invoices for this customer.
+* `currency` (string): If amount_off has been set, the currency of the amount to take off.
 
 ### Discount (i.e. the application of a coupon to a particular user)
 
 	{
-		user, // a user ID you can refer to (String)
-		code, // Coupon code
-		coupon, // associated Coupon object
-		start, // start date (Date)
-		end, // end date (Date)
+		_id,   // discount ID (UUID string)
+		user,  // a user ID you can refer to (string)
+		code,  // coupon code (string)
+		start, // start date (date)
 	}
 
 
@@ -62,25 +71,22 @@ List coupons
 
 	curl http://localhost:3014/api/coupons?password=MYPASSWORD
 
-Check/get available coupon (return code `404` if not found, `412` if found but not applicable)
+Get coupon by code (return code `404` if not found)
 
 	curl http://localhost:3014/api/coupons/MYCOUPON?password=MYPASSWORD
-	// The ‘@’ in email is needed to determine to look for an email-based coupon
+	// The '@' prefix is needed to look up an email-based coupon
 	curl http://localhost:3014/api/coupons/@mit.edu?password=MYPASSWORD
 
 Create new coupon:
 
 	curl -X POST -H "Content-Type: application/json" -d '{ "code": "MYCOUPON", "percent_off": 10 }' http://localhost:3014/api/coupons?password=MYPASSWORD
 
-	// Email-based: when create discount, if user’s email contains “mit.edu”, discount will be applied
+	// Email-based: when creating a discount, if user's email contains "mit.edu", discount will be applied
 	curl -X POST -H "Content-Type: application/json" -d '{ "email": "mit.edu", "percent_off": 10 }' http://localhost:3014/api/coupons?password=MYPASSWORD
-
-	// Example: provide free services in a coupon
-	curl -X POST -H "Content-Type: application/json" -d '{ "code": "FREESERVICES", "metadata": { "subscriptions": [{ "id": "unlimited_projects" }] } }' http://localhost:3014/api/coupons?password=MYPASSWORD
 
 Update coupon:
 
-	curl -X PUT -H "Content-Type: application/json" -d '{ "duration": "repeating", "duration_in_months": 6 }' http://localhost:3014/api/coupons/MYCOUPON?password=MYPASSWORD
+	curl -X PUT -H "Content-Type: application/json" -d '{ "percent_off": 20 }' http://localhost:3014/api/coupons/MYCOUPON?password=MYPASSWORD
 
 Delete coupon:
 
@@ -93,22 +99,21 @@ Delete all coupons:
 
 ### Discounts
 
-List applied discounts for a user:
+List applied discounts:
 
-	curl http://localhost:3014/api/discounts?password=MYPASSWORD&user=548cbb2b1ad50708212193d8
+	curl http://localhost:3014/api/discounts?password=MYPASSWORD
+
+Filter discounts by start date:
+
+	curl http://localhost:3014/api/discounts?password=MYPASSWORD&from=2024-01-01
 
 Apply/create new discount:
 
-	curl -X POST -H "Content-Type: application/json" -d '{ "code": "MYCOUPON", "user": "548cbb2b1ad50708212193d8" }' http://localhost:3014/api/discounts?password=MYPASSWORD
-	curl -X POST -H "Content-Type: application/json" -d '{ "email": "@mit.edu", "user": "548cbb2b1ad50708212193d8" }' http://localhost:3014/api/discounts?password=MYPASSWORD
+	curl -X POST -H "Content-Type: application/json" -d '{ "code": "MYCOUPON", "user": "user123" }' http://localhost:3014/api/discounts?password=MYPASSWORD
 
 Delete discount:
 
-	curl -X DELETE http://localhost:3014/api/discounts/50708212193d8?password=MYPASSWORD
-
-Delete all discounts for a user:
-
-	curl -X DELETE http://localhost:3014/api/discounts/USER?password=MYPASSWORD&user=548cbb2b1ad50708212193d8
+	curl -X DELETE http://localhost:3014/api/discounts/DISCOUNT_ID?password=MYPASSWORD
 
 Delete all discounts:
 
@@ -117,15 +122,4 @@ Delete all discounts:
 
 ## Implementation
 
-Built on Node.js, Express, and MongoDB.
-
-
-## Deploying on Heroku
-
-	# Set up and configure app
-	heroku create MYAPPNAME
-	heroku addons:create mongolab
-	heroku config:set NODE_ENV=production
-
-	# Set password used in API requests
-	heroku config:set API_PASSWORD=MYPASSWORD
+Built on Node.js, Express, PostgreSQL, and Prisma.

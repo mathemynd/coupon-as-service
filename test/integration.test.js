@@ -1,7 +1,7 @@
 'use strict';
 
 const request = require('supertest');
-const mongoose = require('mongoose');
+const prisma = require('../app/prisma');
 
 describe('Integration Tests', () => {
   let app;
@@ -14,15 +14,14 @@ describe('Integration Tests', () => {
   });
 
   afterAll(async () => {
-    await mongoose.connection.dropDatabase();
-    app.closeDatabase();
+    await prisma.discount.deleteMany();
+    await prisma.coupon.deleteMany();
+    await prisma.$disconnect();
   });
 
   beforeEach(async () => {
-    const Coupon = mongoose.model('Coupon');
-    const Discount = mongoose.model('Discount');
-    await Coupon.deleteMany({});
-    await Discount.deleteMany({});
+    await prisma.discount.deleteMany();
+    await prisma.coupon.deleteMany();
   });
 
   describe('Full coupon lifecycle', () => {
@@ -33,7 +32,6 @@ describe('Integration Tests', () => {
         .send({
           code: 'LIFECYCLE',
           percent_off: 15,
-          duration: 'once',
           max_redemptions: 100,
         })
         .expect(200);
@@ -122,14 +120,14 @@ describe('Integration Tests', () => {
 
   describe('Multiple coupons and discounts', () => {
     test('should handle multiple coupons and discounts', async () => {
-      const Coupon = mongoose.model('Coupon');
-
       // Create multiple coupons
-      await Coupon.create([
-        { code: 'BULK1', percent_off: 10 },
-        { code: 'BULK2', percent_off: 20 },
-        { code: 'BULK3', percent_off: 30 },
-      ]);
+      await prisma.coupon.createMany({
+        data: [
+          { code: 'BULK1', percent_off: 10 },
+          { code: 'BULK2', percent_off: 20 },
+          { code: 'BULK3', percent_off: 30 },
+        ]
+      });
 
       // List coupons
       const listRes = await request(app)

@@ -2,13 +2,17 @@
 
 var _ = require('lodash');
 var md5 = require('md5');
-var mongoose = require('mongoose');
-var Coupon = mongoose.model('Coupon');
+var prisma = require('../prisma');
+
+var COUPON_FIELDS = ['code', 'email', 'redeem_by', 'max_redemptions', 'times_redeemed', 'percent_off', 'amount_off', 'currency'];
+
+var pickCouponFields = function (obj) {
+	return _.pick(obj, COUPON_FIELDS);
+};
 
 var cleanUpCoupon = function (coupon) {
-	var obj = coupon.toObject ? coupon.toObject() : coupon;
-	delete obj['_id'];
-	delete obj['__v'];
+	var obj = Object.assign({}, coupon);
+	delete obj['id'];
 	obj.id = obj.code;
 	return obj;
 };
@@ -18,9 +22,10 @@ module.exports = {
 	// List all Coupons
 	list: async function (req, res, next) {
 		try {
-			var searchQuery = {};
-			var coupons = await Coupon.find(searchQuery, null, { sort: { code: 1 } }).lean().exec();
-			_.forEach(coupons, cleanUpCoupon);
+			var coupons = await prisma.coupon.findMany({ orderBy: { code: 'asc' } });
+			_.forEach(coupons, function (coupon, index) {
+				coupons[index] = cleanUpCoupon(coupon);
+			});
 			return res.json(coupons);
 		} catch (err) {
 			return res.status(400).json(err);
@@ -30,20 +35,18 @@ module.exports = {
 	// Show a Coupon
 	read: async function (req, res, next) {
 		try {
-			var searchQuery = {};
+			var coupon;
 			if (req.params.id.indexOf('@') !== -1) {
-				// Email-based coupon: strip @ and search by email field
-				var email = req.params.id.substring(1); // Remove @ prefix
-				searchQuery.email = email;
+				var email = req.params.id.substring(1);
+				coupon = await prisma.coupon.findFirst({ where: { email: email } });
 			}
 			else {
-				searchQuery.code = req.params.id.toUpperCase();
+				coupon = await prisma.coupon.findFirst({ where: { code: req.params.id.toUpperCase() } });
 			}
-			var coupons = await Coupon.find(searchQuery).lean().exec();
-			if (coupons.length === 0) {
+			if (!coupon) {
 				return res.status(404).json('Coupon not found');
 			}
-			return res.json(cleanUpCoupon(coupons[0]));
+			return res.json(cleanUpCoupon(coupon));
 		} catch (err) {
 			return res.status(400).json(err);
 		}
@@ -52,12 +55,12 @@ module.exports = {
 	// Create new Coupon
 	create: async function (req, res, next) {
 		try {
-			var newCoupon = new Coupon(req.body);
-			if (!newCoupon.code)
-				newCoupon.code = md5(Date.now() + Math.random());
-			newCoupon.code = newCoupon.code.toUpperCase();
-			await newCoupon.save();
-			return res.json(cleanUpCoupon(newCoupon));
+			var data = pickCouponFields(req.body);
+			if (!data.code)
+				data.code = md5(Date.now() + Math.random());
+			data.code = data.code.toUpperCase();
+			var coupon = await prisma.coupon.create({ data: data });
+			return res.json(cleanUpCoupon(coupon));
 		} catch (err) {
 			return res.status(400).json(err);
 		}
@@ -66,10 +69,10 @@ module.exports = {
 	// Update a Coupon
 	update: async function (req, res, next) {
 		try {
-			await Coupon.updateOne(
-				{ code: req.params.id.toUpperCase() },
-				req.body
-			);
+			await prisma.coupon.updateMany({
+				where: { code: req.params.id.toUpperCase() },
+				data: pickCouponFields(req.body)
+			});
 			res.status(200).json('Updated coupon ' + req.params.id);
 		} catch (err) {
 			res.status(500).json(err);
@@ -79,15 +82,15 @@ module.exports = {
 	// Delete a Coupon
 	delete: async function (req, res, next) {
 		try {
-			var searchQuery;
+			var where;
 			if (req.params.id === 'ALL') {
-				searchQuery = {};
+				where = {};
 			}
 			else {
-				searchQuery = { code: req.params.id.toUpperCase() }
+				where = { code: req.params.id.toUpperCase() };
 			}
-			var result = await Coupon.deleteMany(searchQuery);
-			res.status(200).json('Deleted ' + result.deletedCount + ' coupons');
+			var result = await prisma.coupon.deleteMany({ where: where });
+			res.status(200).json('Deleted ' + result.count + ' coupons');
 		} catch (err) {
 			res.status(500).json(err);
 		}

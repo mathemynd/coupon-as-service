@@ -1,7 +1,7 @@
 'use strict';
 
 const request = require('supertest');
-const mongoose = require('mongoose');
+const prisma = require('../app/prisma');
 
 describe('Coupons API', () => {
   let app;
@@ -14,14 +14,14 @@ describe('Coupons API', () => {
   });
 
   afterAll(async () => {
-    await mongoose.connection.dropDatabase();
-    app.closeDatabase();
+    await prisma.discount.deleteMany();
+    await prisma.coupon.deleteMany();
+    await prisma.$disconnect();
   });
 
   beforeEach(async () => {
-    // Clean up coupons before each test
-    const Coupon = mongoose.model('Coupon');
-    await Coupon.deleteMany({});
+    await prisma.discount.deleteMany();
+    await prisma.coupon.deleteMany();
   });
 
   describe('GET /api/coupons', () => {
@@ -36,11 +36,12 @@ describe('Coupons API', () => {
     });
 
     test('should return list of coupons', async () => {
-      const Coupon = mongoose.model('Coupon');
-      await Coupon.create([
-        { code: 'TEST1', percent_off: 10 },
-        { code: 'TEST2', percent_off: 20 },
-      ]);
+      await prisma.coupon.createMany({
+        data: [
+          { code: 'TEST1', percent_off: 10 },
+          { code: 'TEST2', percent_off: 20 },
+        ]
+      });
 
       const res = await request(app)
         .get(`/api/coupons?password=${password}`)
@@ -162,11 +163,12 @@ describe('Coupons API', () => {
 
   describe('GET /api/coupons/:id', () => {
     beforeEach(async () => {
-      const Coupon = mongoose.model('Coupon');
-      await Coupon.create([
-        { code: 'TESTCODE', percent_off: 30 },
-        { email: 'stanford.edu', percent_off: 20 },
-      ]);
+      await prisma.coupon.createMany({
+        data: [
+          { code: 'TESTCODE', percent_off: 30 },
+          { email: 'stanford.edu', percent_off: 20 },
+        ]
+      });
     });
 
     test('should get coupon by code', async () => {
@@ -216,8 +218,7 @@ describe('Coupons API', () => {
 
   describe('PUT /api/coupons/:id', () => {
     beforeEach(async () => {
-      const Coupon = mongoose.model('Coupon');
-      await Coupon.create({ code: 'UPDATEME', percent_off: 10 });
+      await prisma.coupon.create({ data: { code: 'UPDATEME', percent_off: 10 } });
     });
 
     test('should update coupon', async () => {
@@ -260,11 +261,12 @@ describe('Coupons API', () => {
 
   describe('DELETE /api/coupons/:id', () => {
     beforeEach(async () => {
-      const Coupon = mongoose.model('Coupon');
-      await Coupon.create([
-        { code: 'DELETE1', percent_off: 10 },
-        { code: 'DELETE2', percent_off: 20 },
-      ]);
+      await prisma.coupon.createMany({
+        data: [
+          { code: 'DELETE1', percent_off: 10 },
+          { code: 'DELETE2', percent_off: 20 },
+        ]
+      });
     });
 
     test('should delete coupon by code', async () => {

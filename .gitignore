@@ -1,4 +1,8 @@
 node_modules/
 .claude/
 .opencode/
-walkthrough.md
+CLAUDE.md
+.env
+debts.md
+
+/app/generated/prisma

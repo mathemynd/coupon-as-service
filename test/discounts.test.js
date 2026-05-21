@@ -1,7 +1,7 @@
 'use strict';
 
 const request = require('supertest');
-const mongoose = require('mongoose');
+const prisma = require('../app/prisma');
 
 describe('Discounts API', () => {
   let app;
@@ -14,24 +14,23 @@ describe('Discounts API', () => {
   });
 
   afterAll(async () => {
-    await mongoose.connection.dropDatabase();
-    app.closeDatabase();
+    await prisma.discount.deleteMany();
+    await prisma.coupon.deleteMany();
+    await prisma.$disconnect();
   });
 
   beforeEach(async () => {
-    // Clean up before each test
-    const Coupon = mongoose.model('Coupon');
-    const Discount = mongoose.model('Discount');
-    await Coupon.deleteMany({});
-    await Discount.deleteMany({});
+    await prisma.discount.deleteMany();
+    await prisma.coupon.deleteMany();
   });
 
   async function createTestCoupons() {
-    const Coupon = mongoose.model('Coupon');
-    await Coupon.create([
-      { code: 'DISCOUNT10', percent_off: 10 },
-      { code: 'DISCOUNT20', percent_off: 20 },
-    ]);
+    await prisma.coupon.createMany({
+      data: [
+        { code: 'DISCOUNT10', percent_off: 10 },
+        { code: 'DISCOUNT20', percent_off: 20 },
+      ]
+    });
   }
 
   describe('GET /api/discounts', () => {
@@ -47,14 +46,12 @@ describe('Discounts API', () => {
 
     test('should return list of discounts', async () => {
       await createTestCoupons();
-      const Discount = mongoose.model('Discount');
-      const Coupon = mongoose.model('Coupon');
-      const coupon = await Coupon.findOne({ code: 'DISCOUNT10' });
-
-      await Discount.create([
-        { user: 'user1', code: 'DISCOUNT10', coupon: coupon._id },
-        { user: 'user2', code: 'DISCOUNT20', coupon: coupon._id },
-      ]);
+      await prisma.discount.createMany({
+        data: [
+          { user: 'user1', code: 'DISCOUNT10' },
+          { user: 'user2', code: 'DISCOUNT20' },
+        ]
+      });
 
       const res = await request(app)
         .get(`/api/discounts?password=${password}`)
@@ -68,24 +65,21 @@ describe('Discounts API', () => {
 
     test('should filter by from date', async () => {
       await createTestCoupons();
-      const Discount = mongoose.model('Discount');
-      const Coupon = mongoose.model('Coupon');
-      const coupon = await Coupon.findOne({ code: 'DISCOUNT10' });
 
-      // Create old discount
-      await Discount.create({
-        user: 'olduser',
-        code: 'DISCOUNT10',
-        coupon: coupon._id,
-        start: new Date('2020-01-01'),
+      await prisma.discount.create({
+        data: {
+          user: 'olduser',
+          code: 'DISCOUNT10',
+          start: new Date('2020-01-01'),
+        }
       });
 
-      // Create recent discount
-      await Discount.create({
-        user: 'newuser',
-        code: 'DISCOUNT10',
-        coupon: coupon._id,
-        start: new Date(),
+      await prisma.discount.create({
+        data: {
+          user: 'newuser',
+          code: 'DISCOUNT10',
+          start: new Date(),
+        }
       });
 
       const res = await request(app)
@@ -172,16 +166,13 @@ describe('Discounts API', () => {
 
     beforeEach(async () => {
       await createTestCoupons();
-      const Discount = mongoose.model('Discount');
-      const Coupon = mongoose.model('Coupon');
-      const coupon = await Coupon.findOne({ code: 'DISCOUNT10' });
-
-      const discount = await Discount.create({
-        user: 'testuser',
-        code: 'DISCOUNT10',
-        coupon: coupon._id,
+      const discount = await prisma.discount.create({
+        data: {
+          user: 'testuser',
+          code: 'DISCOUNT10',
+        }
       });
-      discountId = discount._id.toString();
+      discountId = discount.id;
     });
 
     test('should get discount by ID', async () => {
@@ -206,16 +197,13 @@ describe('Discounts API', () => {
 
     beforeEach(async () => {
       await createTestCoupons();
-      const Discount = mongoose.model('Discount');
-      const Coupon = mongoose.model('Coupon');
-      const coupon = await Coupon.findOne({ code: 'DISCOUNT10' });
-
-      const discount = await Discount.create({
-        user: 'originaluser',
-        code: 'DISCOUNT10',
-        coupon: coupon._id,
+      const discount = await prisma.discount.create({
+        data: {
+          user: 'originaluser',
+          code: 'DISCOUNT10',
+        }
       });
-      discountId = discount._id.toString();
+      discountId = discount.id;
     });
 
     test('should update discount', async () => {
@@ -247,16 +235,13 @@ describe('Discounts API', () => {
 
     beforeEach(async () => {
       await createTestCoupons();
-      const Discount = mongoose.model('Discount');
-      const Coupon = mongoose.model('Coupon');
-      const coupon = await Coupon.findOne({ code: 'DISCOUNT10' });
-
-      const discount = await Discount.create({
-        user: 'deleteuser',
-        code: 'DISCOUNT10',
-        coupon: coupon._id,
+      const discount = await prisma.discount.create({
+        data: {
+          user: 'deleteuser',
+          code: 'DISCOUNT10',
+        }
       });
-      discountId = discount._id.toString();
+      discountId = discount.id;
     });
 
     test('should delete discount by ID', async () => {
@@ -275,15 +260,12 @@ describe('Discounts API', () => {
     });
 
     test('should delete all discounts with ALL', async () => {
-      const Discount = mongoose.model('Discount');
-      const Coupon = mongoose.model('Coupon');
-      const coupon = await Coupon.findOne({ code: 'DISCOUNT10' });
-
-      // Create multiple discounts
-      await Discount.create([
-        { user: 'user1', code: 'DISCOUNT10', coupon: coupon._id },
-        { user: 'user2', code: 'DISCOUNT20', coupon: coupon._id },
-      ]);
+      await prisma.discount.createMany({
+        data: [
+          { user: 'user1', code: 'DISCOUNT10' },
+          { user: 'user2', code: 'DISCOUNT20' },
+        ]
+      });
 
       const res = await request(app)
         .delete(`/api/discounts/ALL?password=${password}`)

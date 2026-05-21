@@ -1,0 +1,14 @@
+model Coupon {
+  id              Int       @id @default(autoincrement())
+  created         DateTime  @default(now())
+  code            String?   @unique
+  email           String?   @unique
+  redeem_by       DateTime?
+  max_redemptions Int?
+  times_redeemed  Int       @default(0)
+  percent_off     Float?
+  amount_off      Float?
+  currency        String?
+
+  @@map("coupons")
+}

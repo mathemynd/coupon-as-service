@@ -10,8 +10,7 @@ var config = {
 			name: 'coupon-service'
 		},
 		port: 3014,
-		db: 'mongodb://localhost/coupon-service-development'
-		
+		db: 'postgresql://postgres:postgres@localhost:5432/coupon_service_development'
 	},
 
 	test: {
@@ -20,8 +19,7 @@ var config = {
 			name: 'coupon-service'
 		},
 		port: 3000,
-		db: 'mongodb://localhost/coupon-service-test'
-		
+		db: 'postgresql://postgres:postgres@localhost:5433/coupon_service_test'
 	},
 
 	production: {
@@ -30,8 +28,7 @@ var config = {
 			name: 'coupon-service'
 		},
 		port: 3000,
-		db: process.env.MONGOLAB_URI || 'mongodb://localhost/coupon-service-production'
-
+		db: process.env.DATABASE_URL || 'postgresql://postgres:postgres@localhost:5432/coupon_service_production'
 	}
 
 };
