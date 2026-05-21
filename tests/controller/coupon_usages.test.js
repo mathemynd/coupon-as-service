@@ -260,7 +260,7 @@ describe('CouponUsages Controller', () => {
 		test('19. returns 404 for wrong ID', async () => {
 			await createActiveCoupon('WRONGID1', 'single_use');
 
-			var req = mockReq({ code: 'WRONGID1', id: '00000000-0000-0000-0000-000000000000' });
+			var req = mockReq({ code: 'WRONGID1', id: '999999' });
 			var res = mockRes();
 			await couponUsagesController.read(req, res, function () {});
 

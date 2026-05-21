@@ -2,6 +2,16 @@
 
 var prisma = require('../prisma');
 
+var prepareResponse = function (usage) {
+	return {
+		id: usage.id,
+		code: usage.code,
+		redemption_count: usage.redemption_count,
+		redeemed_at: usage.redeemed_at,
+		metadata: usage.metadata
+	};
+};
+
 module.exports = {
 
 	// List redemptions for a coupon
@@ -11,7 +21,7 @@ module.exports = {
 				where: { code: req.params.code.toUpperCase(), is_deleted: false },
 				orderBy: { redeemed_at: 'desc' }
 			});
-			return res.json(usages);
+			return res.json(usages.map(prepareResponse));
 		} catch (err) {
 			return res.status(400).json(err);
 		}
@@ -22,7 +32,7 @@ module.exports = {
 		try {
 			var usage = await prisma.couponUsage.findFirst({
 				where: {
-					id: req.params.id,
+					id: parseInt(req.params.id),
 					code: req.params.code.toUpperCase(),
 					is_deleted: false
 				}
@@ -30,7 +40,7 @@ module.exports = {
 			if (!usage) {
 				return res.status(404).json('Redemption not found');
 			}
-			return res.json(usage);
+			return res.json(prepareResponse(usage));
 		} catch (err) {
 			return res.status(400).json(err);
 		}

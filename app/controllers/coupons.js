@@ -166,7 +166,13 @@ module.exports = {
 				}
 			});
 
-			return res.json(usage);
+			return res.json({
+				id: usage.id,
+				code: usage.code,
+				redemption_count: usage.redemption_count,
+				redeemed_at: usage.redeemed_at,
+				metadata: usage.metadata
+			});
 		} catch (err) {
 			return res.status(400).json(err);
 		}

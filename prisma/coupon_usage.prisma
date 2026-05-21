@@ -1,5 +1,5 @@
 model CouponUsage {
-  id               String   @id @default(uuid())
+  id               Int      @id @default(autoincrement())
   created_date     DateTime @default(now())
   updated_date     DateTime @updatedAt
   is_deleted       Boolean  @default(false)

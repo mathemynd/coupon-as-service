@@ -68,9 +68,9 @@ REPORTER ?= default
 test: ## Run tests (r=verbose|dot cov=1 debug=1)
 	NODE_ENV=test npx vitest run --reporter=$(if $(r),$(r),$(REPORTER)) $(if $(cov),--coverage,)
 	@if [ -n "$(cov)" ]; then \
-		node -e "var c=require('./coverage/coverage-summary.json').total; var fmt=function(k){var s=k.charAt(0).toUpperCase()+k.slice(1); return s.padEnd(13)+': '+String(c[k].pct).padStart(5)+'% ( '+c[k].covered+'/'+c[k].total+' )'}; console.log('=============================== Coverage summary ===============================\n'+fmt('statements')+'\n'+fmt('branches')+'\n'+fmt('functions')+'\n'+fmt('lines')+'\n================================================================================')" > test_coverage.txt; \
+		node -e "var c=require('./coverage/coverage-summary.json').total; var fmt=function(k){var s=k.charAt(0).toUpperCase()+k.slice(1); return s.padEnd(13)+': '+String(c[k].pct).padStart(5)+'% ( '+c[k].covered+'/'+c[k].total+' )'}; console.log('=============================== Coverage summary ===============================\n'+fmt('statements')+'\n'+fmt('branches')+'\n'+fmt('functions')+'\n'+fmt('lines')+'\n================================================================================')" > docs/test_coverage.txt; \
 		if [ -z "$(debug)" ]; then rm -rf coverage/; fi; \
-		echo "Coverage saved to test_coverage.txt"; \
+		echo "Coverage saved to docs/test_coverage.txt"; \
 	fi
 
 # ============================================

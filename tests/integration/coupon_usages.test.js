@@ -128,7 +128,7 @@ describe('CouponUsages API — HTTP Contract', () => {
 		test('8. returns 404 when not found', async () => {
 			await createActiveCoupon('GETUSE2', 'single_use');
 			await request(app)
-				.get(`/api/coupons/GETUSE2/redemptions/00000000-0000-0000-0000-000000000000?password=${password}`)
+				.get(`/api/coupons/GETUSE2/redemptions/999999?password=${password}`)
 				.expect(404);
 		});
 
@@ -149,9 +149,59 @@ describe('CouponUsages API — HTTP Contract', () => {
 				.expect(200);
 
 			expect(res.body).toHaveProperty('code', 'SHAPE1');
-			expect(res.body).not.toHaveProperty('id');
 			expect(res.body).not.toHaveProperty('is_deleted');
 			expect(res.body).not.toHaveProperty('version');
+			expect(res.body).not.toHaveProperty('created_date');
+			expect(res.body).not.toHaveProperty('updated_date');
+		});
+
+		test('11. no internal fields leaked in redeem responses', async () => {
+			await createActiveCoupon('SHAPE2', 'single_use');
+
+			var res = await request(app)
+				.post(`/api/coupons/SHAPE2/redeem?password=${password}`)
+				.send({})
+				.expect(200);
+
+			expect(res.body).toHaveProperty('id');
+			expect(res.body).toHaveProperty('code', 'SHAPE2');
+			expect(res.body).toHaveProperty('redemption_count');
+			expect(res.body).toHaveProperty('redeemed_at');
+			expect(res.body).not.toHaveProperty('is_deleted');
+			expect(res.body).not.toHaveProperty('created_date');
+			expect(res.body).not.toHaveProperty('updated_date');
+		});
+
+		test('12. no internal fields leaked in redemption list responses', async () => {
+			await createActiveCoupon('SHAPE3', 'multi_use', 5);
+			await request(app).post(`/api/coupons/SHAPE3/redeem?password=${password}`).send({});
+
+			var res = await request(app)
+				.get(`/api/coupons/SHAPE3/redemptions?password=${password}`)
+				.expect(200);
+
+			expect(res.body).toHaveLength(1);
+			expect(res.body[0]).toHaveProperty('id');
+			expect(res.body[0]).toHaveProperty('code', 'SHAPE3');
+			expect(res.body[0]).not.toHaveProperty('is_deleted');
+			expect(res.body[0]).not.toHaveProperty('created_date');
+			expect(res.body[0]).not.toHaveProperty('updated_date');
+		});
+
+		test('13. no internal fields leaked in redemption by ID response', async () => {
+			await createActiveCoupon('SHAPE4', 'single_use');
+			var redeemRes = await request(app)
+				.post(`/api/coupons/SHAPE4/redeem?password=${password}`)
+				.send({});
+			var usageId = redeemRes.body.id;
+
+			var res = await request(app)
+				.get(`/api/coupons/SHAPE4/redemptions/${usageId}?password=${password}`)
+				.expect(200);
+
+			expect(res.body).toHaveProperty('id', usageId);
+			expect(res.body).toHaveProperty('code', 'SHAPE4');
+			expect(res.body).not.toHaveProperty('is_deleted');
 			expect(res.body).not.toHaveProperty('created_date');
 			expect(res.body).not.toHaveProperty('updated_date');
 		});

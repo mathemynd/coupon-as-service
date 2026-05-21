@@ -1,0 +1,8 @@
+{
+  "compilerOptions": {
+    "types": ["node"],
+    "module": "ESNext",
+    "moduleResolution": "bundler"
+  },
+  "include": ["prisma.config.ts"]
+}

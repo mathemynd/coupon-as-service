@@ -3,11 +3,8 @@ coverage/
 .claude/
 .opencode/
 CLAUDE.md
-.env
-.env.development
-.env.test
-.env.production
-todos.md
-tasks.md
+.env*
+docs/todos.md
+docs/tasks.md
 
 /app/generated/prisma
