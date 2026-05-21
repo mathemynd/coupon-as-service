@@ -1,0 +1,13 @@
+model CouponUsage {
+  id               String   @id @default(uuid())
+  created_date     DateTime @default(now())
+  updated_date     DateTime @updatedAt
+  is_deleted       Boolean  @default(false)
+
+  code             String
+  redemption_count Int
+  redeemed_at      DateTime @default(now())
+  metadata         Json?
+
+  @@map("coupon_usages")
+}

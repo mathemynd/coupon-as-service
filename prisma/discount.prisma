@@ -1,9 +1,0 @@
-model Discount {
-  id    String   @id @default(uuid())
-  user  String
-  code  String
-  start DateTime @default(now())
-
-  @@unique([user, code])
-  @@map("discounts")
-}

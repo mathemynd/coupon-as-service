@@ -21,7 +21,6 @@ model Coupon {
   coupon_usage_type CouponUsageType
   status            CouponStatus     @default(draft)
   max_redemptions   Int?
-  times_redeemed    Int              @default(0)
   start_date        DateTime?
   end_date          DateTime?
   metadata          Json?
