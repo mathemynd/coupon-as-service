@@ -148,8 +148,12 @@ describe('CouponUsages API — HTTP Contract', () => {
 				.get(`/api/coupons/SHAPE1?password=${password}`)
 				.expect(200);
 
+			expect(res.body).toHaveProperty('code', 'SHAPE1');
+			expect(res.body).not.toHaveProperty('id');
 			expect(res.body).not.toHaveProperty('is_deleted');
-			expect(res.body.id).toBe('SHAPE1');
+			expect(res.body).not.toHaveProperty('version');
+			expect(res.body).not.toHaveProperty('created_date');
+			expect(res.body).not.toHaveProperty('updated_date');
 		});
 	});
 });

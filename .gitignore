@@ -1,8 +1,12 @@
 node_modules/
+coverage/
 .claude/
 .opencode/
 CLAUDE.md
 .env
+.env.development
+.env.test
+.env.production
 todos.md
 tasks.md
 

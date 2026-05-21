@@ -18,7 +18,9 @@ var prepareResponse = function (coupon) {
 	var obj = Object.assign({}, coupon);
 	delete obj['id'];
 	delete obj['is_deleted'];
-	obj.id = obj.code;
+	delete obj['version'];
+	delete obj['created_date'];
+	delete obj['updated_date'];
 	return obj;
 };
 

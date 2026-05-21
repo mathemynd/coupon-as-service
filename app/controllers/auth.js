@@ -1,14 +1,14 @@
 'use strict';
 
+var config = require('../config');
+
 module.exports = {
 
 	isAuthenticated: function (req, res, next) {
-		if (process.env.API_PASSWORD && req.query.password === process.env.API_PASSWORD) {
+		if (req.query.password === config.password) {
 			return next();
 		}
-		else {
-			return res.status(401).json('Unauthorized');
-		}
+		return res.status(401).json('Unauthorized');
 	}
 
 }

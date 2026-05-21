@@ -2,10 +2,11 @@ var express = require('express');
 var logger = require('morgan');
 var bodyParser = require('body-parser');
 var cors = require('cors');
+var swaggerUi = require('swagger-ui-express');
+var swaggerSpec = require('./swagger.json');
 
 module.exports = function (app, config) {
 
-	// Only use morgan in development, not in test
 	if (app.get('env') !== 'test') {
 		app.use(logger('dev'));
 	}
@@ -15,7 +16,8 @@ module.exports = function (app, config) {
 	}));
 	app.use(cors());
 
-	// Routing
+	app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
+
 	require('./routes')(app, config);
 
 	app.use(function (req, res, next) {

@@ -1,0 +1,172 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "Coupon as Service",
+    "version": "1.0.0",
+    "description": "REST API for coupon distribution and validation"
+  },
+  "servers": [
+    { "url": "http://localhost:3014" }
+  ],
+  "paths": {
+    "/api/coupons": {
+      "post": {
+        "summary": "Create coupon",
+        "tags": ["Coupons"],
+        "parameters": [
+          { "name": "password", "in": "query", "required": true, "schema": { "type": "string", "default": "coupon_dev_password" } }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/CouponCreate" }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Coupon created" },
+          "400": { "description": "Validation error" },
+          "401": { "description": "Unauthorized" }
+        }
+      }
+    },
+    "/api/coupons/{code}": {
+      "get": {
+        "summary": "Get coupon by code",
+        "tags": ["Coupons"],
+        "parameters": [
+          { "name": "code", "in": "path", "required": true, "schema": { "type": "string" } },
+          { "name": "password", "in": "query", "required": true, "schema": { "type": "string", "default": "coupon_dev_password" } }
+        ],
+        "responses": {
+          "200": { "description": "Coupon found" },
+          "404": { "description": "Coupon not found" },
+          "401": { "description": "Unauthorized" }
+        }
+      },
+      "put": {
+        "summary": "Update coupon (full replace)",
+        "tags": ["Coupons"],
+        "parameters": [
+          { "name": "code", "in": "path", "required": true, "schema": { "type": "string" } },
+          { "name": "password", "in": "query", "required": true, "schema": { "type": "string", "default": "coupon_dev_password" } }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/CouponUpdate" }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Coupon updated" },
+          "400": { "description": "Validation error" },
+          "404": { "description": "Coupon not found" },
+          "401": { "description": "Unauthorized" }
+        }
+      },
+      "delete": {
+        "summary": "Soft delete coupon",
+        "tags": ["Coupons"],
+        "parameters": [
+          { "name": "code", "in": "path", "required": true, "schema": { "type": "string" } },
+          { "name": "password", "in": "query", "required": true, "schema": { "type": "string", "default": "coupon_dev_password" } }
+        ],
+        "responses": {
+          "200": { "description": "Coupon deleted" },
+          "404": { "description": "Coupon not found" },
+          "401": { "description": "Unauthorized" }
+        }
+      }
+    },
+    "/api/coupons/{code}/redeem": {
+      "post": {
+        "summary": "Redeem coupon",
+        "tags": ["Redemption"],
+        "parameters": [
+          { "name": "code", "in": "path", "required": true, "schema": { "type": "string" } },
+          { "name": "password", "in": "query", "required": true, "schema": { "type": "string", "default": "coupon_dev_password" } }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "metadata": { "type": "object", "description": "Optional business-defined data" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Coupon redeemed" },
+          "400": { "description": "Redemption rejected (inactive, expired, exhausted)" },
+          "404": { "description": "Coupon not found" },
+          "401": { "description": "Unauthorized" }
+        }
+      }
+    },
+    "/api/coupons/{code}/redemptions": {
+      "get": {
+        "summary": "List redemptions for coupon",
+        "tags": ["Redemption"],
+        "parameters": [
+          { "name": "code", "in": "path", "required": true, "schema": { "type": "string" } },
+          { "name": "password", "in": "query", "required": true, "schema": { "type": "string", "default": "coupon_dev_password" } }
+        ],
+        "responses": {
+          "200": { "description": "List of redemptions" },
+          "401": { "description": "Unauthorized" }
+        }
+      }
+    },
+    "/api/coupons/{code}/redemptions/{id}": {
+      "get": {
+        "summary": "Get specific redemption",
+        "tags": ["Redemption"],
+        "parameters": [
+          { "name": "code", "in": "path", "required": true, "schema": { "type": "string" } },
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } },
+          { "name": "password", "in": "query", "required": true, "schema": { "type": "string", "default": "coupon_dev_password" } }
+        ],
+        "responses": {
+          "200": { "description": "Redemption found" },
+          "404": { "description": "Redemption not found" },
+          "401": { "description": "Unauthorized" }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "CouponCreate": {
+        "type": "object",
+        "required": ["coupon_usage_type"],
+        "properties": {
+          "code": { "type": "string", "description": "Alphanumeric, auto-generated if omitted", "example": "SAVE20" },
+          "coupon_usage_type": { "type": "string", "enum": ["single_use", "multi_use", "unlimited"], "example": "single_use" },
+          "status": { "type": "string", "enum": ["draft", "active", "retired"], "default": "draft", "example": "active" },
+          "max_redemptions": { "type": "integer", "description": "Required for multi_use", "example": 10 },
+          "start_date": { "type": "string", "format": "date-time" },
+          "end_date": { "type": "string", "format": "date-time" },
+          "metadata": { "type": "object", "example": {} }
+        }
+      },
+      "CouponUpdate": {
+        "type": "object",
+        "properties": {
+          "code": { "type": "string" },
+          "coupon_usage_type": { "type": "string", "enum": ["single_use", "multi_use", "unlimited"] },
+          "status": { "type": "string", "enum": ["draft", "active", "retired"] },
+          "max_redemptions": { "type": "integer" },
+          "start_date": { "type": "string", "format": "date-time" },
+          "end_date": { "type": "string", "format": "date-time" },
+          "metadata": { "type": "object" }
+        }
+      }
+    }
+  }
+}

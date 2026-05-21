@@ -33,10 +33,11 @@ describe('Coupons API — HTTP Contract', () => {
 				.expect('Content-Type', /json/)
 				.expect(200);
 
-			expect(res.body).toHaveProperty('id', 'HTTP1');
+			expect(res.body).toHaveProperty('code', 'HTTP1');
+			expect(res.body).not.toHaveProperty('id');
 			expect(res.body).toHaveProperty('coupon_usage_type', 'single_use');
 			expect(res.body).toHaveProperty('status', 'draft');
-			expect(res.body).toHaveProperty('version', '1.0');
+			expect(res.body).not.toHaveProperty('version');
 			expect(res.body).not.toHaveProperty('is_deleted');
 		});
 
@@ -71,7 +72,8 @@ describe('Coupons API — HTTP Contract', () => {
 				.expect('Content-Type', /json/)
 				.expect(200);
 
-			expect(res.body).toHaveProperty('id', 'GETHTTP');
+			expect(res.body).toHaveProperty('code', 'GETHTTP');
+			expect(res.body).not.toHaveProperty('id');
 			expect(res.body).toHaveProperty('coupon_usage_type');
 			expect(res.body).not.toHaveProperty('is_deleted');
 		});

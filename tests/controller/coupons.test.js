@@ -69,7 +69,7 @@ describe('Coupons Controller', () => {
 			await couponsController.create(req, res, function () {});
 
 			expect(res.statusCode).toBe(200);
-			expect(res.body.id).toMatch(/^[A-Z]{8}$/);
+			expect(res.body.code).toMatch(/^[A-Z]{8}$/);
 		});
 
 		test('3. rejects code with special characters', async () => {
@@ -220,7 +220,7 @@ describe('Coupons Controller', () => {
 			await couponsController.read(req, res, function () {});
 
 			expect(res.statusCode).toBe(200);
-			expect(res.body.id).toBe('READTEST');
+			expect(res.body.code).toBe('READTEST');
 			expect(res.body.coupon_usage_type).toBe('single_use');
 		});
 
@@ -230,7 +230,7 @@ describe('Coupons Controller', () => {
 			await couponsController.read(req, res, function () {});
 
 			expect(res.statusCode).toBe(200);
-			expect(res.body.id).toBe('READTEST');
+			expect(res.body.code).toBe('READTEST');
 		});
 
 		test('18. returns 404 for non-existent code', async () => {

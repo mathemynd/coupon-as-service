@@ -45,7 +45,7 @@ describe('E2E — Production Scenarios', () => {
 			status: 'active',
 			metadata: { discount: '10%' }
 		}).expect(200);
-		expect(createRes.body.id).toBe('WELCOME10');
+		expect(createRes.body.code).toBe('WELCOME10');
 
 		// Business verifies it exists
 		var readRes = await get('/api/coupons/WELCOME10').expect(200);

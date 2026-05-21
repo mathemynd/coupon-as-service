@@ -65,8 +65,13 @@ studio: ## Open Prisma Studio (browser DB viewer)
 REPORTER ?= default
 
 .PHONY: test
-test: ## Run tests (make test r=verbose|dot|default)
-	DATABASE_URL=postgresql://postgres:postgres@localhost:5433/coupon_service_test npx vitest run --reporter=$(if $(r),$(r),$(REPORTER))
+test: ## Run tests (r=verbose|dot cov=1 debug=1)
+	NODE_ENV=test npx vitest run --reporter=$(if $(r),$(r),$(REPORTER)) $(if $(cov),--coverage,)
+	@if [ -n "$(cov)" ]; then \
+		node -e "var c=require('./coverage/coverage-summary.json').total; var fmt=function(k){var s=k.charAt(0).toUpperCase()+k.slice(1); return s.padEnd(13)+': '+String(c[k].pct).padStart(5)+'% ( '+c[k].covered+'/'+c[k].total+' )'}; console.log('=============================== Coverage summary ===============================\n'+fmt('statements')+'\n'+fmt('branches')+'\n'+fmt('functions')+'\n'+fmt('lines')+'\n================================================================================')" > test_coverage.txt; \
+		if [ -z "$(debug)" ]; then rm -rf coverage/; fi; \
+		echo "Coverage saved to test_coverage.txt"; \
+	fi
 
 # ============================================
 # Utilities
@@ -74,17 +79,14 @@ test: ## Run tests (make test r=verbose|dot|default)
 
 .PHONY: psql
 psql: ## Connect to dev DB via psql
-	psql postgresql://postgres:postgres@localhost:5432/coupon_service
+	docker exec -it coupon_service_db psql -U postgres -d coupon_service_development
 
 .PHONY: psql-test
 psql-test: ## Connect to test DB via psql
-	psql postgresql://postgres:postgres@localhost:5433/coupon_service_test
-
-.PHONY: up
-up: db-up ## Alias for db-up
+	docker exec -it coupon_service_db_test psql -U postgres -d coupon_service_test
 
 .PHONY: down
 down: db-down ## Alias for db-down
 
 .PHONY: restart
-restart: down up ## Restart database
+restart: down db-up ## Restart database

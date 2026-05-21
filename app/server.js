@@ -1,5 +1,5 @@
 var config = require('./config');
 var app = require('./app');
 
-console.log('coupon-service running on http://localhost:' + (process.env.PORT || config.port));
-app.listen(process.env.PORT || config.port);
+console.log('coupon-as-service running on http://localhost:' + config.port);
+app.listen(config.port);
