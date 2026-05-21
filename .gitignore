@@ -3,7 +3,7 @@ node_modules/
 .opencode/
 CLAUDE.md
 .env
-debts.md
+todos.md
 tasks.md
 
 /app/generated/prisma

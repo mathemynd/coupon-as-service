@@ -1,6 +1,6 @@
 # Coupon as Service
 
-REST API for discount coupons/vouchers, built with Node.js, Express, and PostgreSQL.
+REST API for coupon distribution and validation, built with Node.js, Express, and PostgreSQL.
 
 ## Setup
 
@@ -17,10 +17,18 @@ npm start                   # Start server on http://localhost:3014
 ## Testing
 
 ```bash
-npm test                    # 48 tests against test DB on port 5433
+make test              # Run all tests (default reporter)
+make test r=verbose    # Every test listed
+make test r=dot        # Most compact
 ```
 
-Uses Vitest + Supertest. Tests run serially against a real PostgreSQL instance.
+80 tests across 3 layers using Vitest + Supertest against real PostgreSQL.
+
+| Layer | What | Tests |
+|-------|------|-------|
+| Controller | Business logic, validation rules | 50 |
+| Integration | HTTP contract, status codes, auth | 22 |
+| E2E | Production scenarios, lifecycle flows | 8 |
 
 ## Architecture
 
@@ -35,7 +43,7 @@ Routes (app/routes.js)
     ↓
 Auth (app/controllers/auth.js) — checks ?password= query param
     ↓
-Controller (app/controllers/coupons.js | discounts.js)
+Controller (app/controllers/coupons.js | coupon_usages.js)
     ↓
 Prisma ORM (app/prisma.js)
     ↓
@@ -46,58 +54,64 @@ PostgreSQL
 
 ```
 app/
-  server.js              # Entry point
-  app.js                 # Express bootstrap + Prisma
-  prisma.js              # PrismaClient singleton
-  config.js              # Per-env config (dev/test/prod)
-  express.js             # Middleware setup
-  routes.js              # Route definitions
+  server.js                # Entry point
+  app.js                   # Express bootstrap + Prisma
+  prisma.js                # PrismaClient singleton
+  config.js                # Per-env config (dev/test/prod)
+  express.js               # Middleware setup
+  routes.js                # Route definitions
   controllers/
-    auth.js              # Password authentication middleware
-    coupons.js           # Coupon CRUD operations
-    discounts.js         # Discount CRUD operations
+    auth.js                # Password authentication middleware
+    coupons.js             # Coupon CRUD + redeem
+    coupon_usages.js       # Redemption history (read-only)
 prisma/
-  schema.prisma          # Generator + datasource
-  coupon.prisma          # Coupon model
-  discount.prisma        # Discount model
-test/
-  coupons.test.js        # 17 tests
-  discounts.test.js      # 16 tests
-  integration.test.js    # 8 tests (lifecycle flows)
+  schema.prisma            # Generator + datasource
+  coupon.prisma            # Coupon model + enums
+  coupon_usage.prisma      # CouponUsage model
+tests/
+  controller/
+    coupons.test.js        # 30 tests
+    coupon_usages.test.js  # 20 tests
+  integration/
+    coupons.test.js        # 12 tests
+    coupon_usages.test.js  # 10 tests
+  e2e/
+    lifecycle.test.js      #  8 tests
 ```
 
 ## Data Models
 
-### Coupon
+### Coupon (12 fields)
 
-| Field | Type | Notes |
-|-------|------|-------|
-| id | String (UUID) | Primary key |
-| code | String | Unique, uppercase |
-| email | String | Unique, partial match (e.g. "mit.edu") |
-| percent_off | Float | Percentage discount |
-| amount_off | Float | Fixed amount discount |
-| currency | String | Currency for amount_off |
-| max_redemptions | Int | Max total uses |
-| times_redeemed | Int | Current redemption count (default: 0) |
-| redeem_by | DateTime | Expiration date |
-| duration | String | 'once', 'forever', 'repeating' |
-| duration_in_months | Int | For repeating duration |
-| metadata | JSON | Arbitrary key/value pairs |
-| created | DateTime | Auto-set |
+| Category | Field | Type | Notes |
+|----------|-------|------|-------|
+| System | id | Int | Auto-increment PK |
+| | created_date | DateTime | Auto-set |
+| | updated_date | DateTime | Auto-updated |
+| | is_deleted | Boolean | Soft delete (default false) |
+| Business | code | String | Unique, uppercase, auto-gen 8 chars if missing |
+| | version | String | Default "1.0", immutable after creation |
+| | coupon_usage_type | Enum | `single_use`, `multi_use`, `unlimited` |
+| | status | Enum | `draft`, `active`, `retired` (default draft) |
+| | max_redemptions | Int? | Required for multi_use, 1 for single_use, null for unlimited |
+| | start_date | DateTime? | Valid from |
+| | end_date | DateTime? | Valid until |
+| | metadata | JSON? | Business-defined payload |
 
-Either `code` or `email` identifies a coupon. If `code` is omitted on create, one is auto-generated.
+### CouponUsage (8 fields)
 
-### Discount
+Append-only audit table. Rows created via the redeem endpoint.
 
-| Field | Type | Notes |
-|-------|------|-------|
-| id | String (UUID) | Primary key |
-| user | String | User identifier |
-| code | String | Coupon code applied |
-| start | DateTime | Auto-set |
-
-Compound unique on `(user, code)` — a user can apply each coupon once.
+| Category | Field | Type | Notes |
+|----------|-------|------|-------|
+| System | id | String (UUID) | PK |
+| | created_date | DateTime | Auto-set |
+| | updated_date | DateTime | Auto-updated |
+| | is_deleted | Boolean | Default false |
+| Business | code | String | Coupon code redeemed |
+| | redemption_count | Int | Running total after this redemption |
+| | redeemed_at | DateTime | Auto-set |
+| | metadata | JSON? | Business-defined |
 
 ## REST API
 
@@ -107,21 +121,27 @@ All endpoints require `?password=API_PASSWORD`.
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| GET | `/api/coupons` | List all coupons |
-| GET | `/api/coupons/:id` | Get by code or `@email` |
+| GET | `/api/coupons/:code` | Get coupon by code |
 | POST | `/api/coupons` | Create coupon |
-| PUT | `/api/coupons/:id` | Update coupon by code |
-| DELETE | `/api/coupons/:id` | Delete by code, or `ALL` to delete everything |
+| PUT | `/api/coupons/:code` | Full replace (entire payload) |
+| DELETE | `/api/coupons/:code` | Soft delete |
 
-### Discounts
+### Redemption
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| GET | `/api/discounts` | List all (optional `?from=ISO_DATE` filter) |
-| GET | `/api/discounts/:id` | Get by ID |
-| POST | `/api/discounts` | Apply coupon to user (upserts) |
-| PUT | `/api/discounts/:id` | Update by ID |
-| DELETE | `/api/discounts/:id` | Delete by ID, or `ALL` to delete everything |
+| POST | `/api/coupons/:code/redeem` | Validate and redeem coupon |
+| GET | `/api/coupons/:code/redemptions` | List redemptions for coupon |
+| GET | `/api/coupons/:code/redemptions/:id` | Get specific redemption |
+
+### Redemption Validation
+
+On redeem, the system checks:
+- Status must be `active`
+- Current date within `start_date` / `end_date` window
+- `single_use`: not already redeemed
+- `multi_use`: redemption count < `max_redemptions`
+- `unlimited`: no cap
 
 ### Examples
 
@@ -131,29 +151,26 @@ export BASE="http://localhost:3014"
 
 # Create coupon
 curl -X POST -H "Content-Type: application/json" \
-  -d '{"code": "SAVE20", "percent_off": 20}' \
+  -d '{"code": "SAVE20", "coupon_usage_type": "single_use", "status": "active"}' \
   "$BASE/api/coupons?$PW"
 
 # Get coupon
 curl "$BASE/api/coupons/SAVE20?$PW"
 
-# Email-based coupon
+# Redeem coupon
 curl -X POST -H "Content-Type: application/json" \
-  -d '{"email": "mit.edu", "percent_off": 15}' \
-  "$BASE/api/coupons?$PW"
+  -d '{}' \
+  "$BASE/api/coupons/SAVE20/redeem?$PW"
 
-# Look up by email
-curl "$BASE/api/coupons/@mit.edu?$PW"
+# View redemption history
+curl "$BASE/api/coupons/SAVE20/redemptions?$PW"
 
-# Apply discount to user
-curl -X POST -H "Content-Type: application/json" \
-  -d '{"code": "SAVE20", "user": "user123"}' \
-  "$BASE/api/discounts?$PW"
+# Update coupon
+curl -X PUT -H "Content-Type: application/json" \
+  -d '{"coupon_usage_type": "single_use", "status": "retired"}' \
+  "$BASE/api/coupons/SAVE20?$PW"
 
-# List discounts
-curl "$BASE/api/discounts?$PW"
-
-# Delete coupon
+# Delete coupon (soft delete)
 curl -X DELETE "$BASE/api/coupons/SAVE20?$PW"
 ```
 

@@ -1,9 +1,0 @@
-$kind: http-request
-name: List Discounts
-method: GET
-url: '{{baseUrl}}/api/discounts'
-order: 1000
-queryParams:
-  - key: password
-    value: '{{password}}'
-description: 'List all discounts, sorted by start date descending. Optionally filter with `?from=ISO_DATE` to get discounts created after a date.'

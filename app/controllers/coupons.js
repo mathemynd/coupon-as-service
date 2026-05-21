@@ -52,6 +52,9 @@ module.exports = {
 				}
 			} else {
 				data.code = data.code.toUpperCase();
+				if (!/^[A-Z0-9]+$/.test(data.code)) {
+					return res.status(400).json('Code must be alphanumeric only');
+				}
 			}
 
 			if (!data.coupon_usage_type) {
@@ -62,6 +65,8 @@ module.exports = {
 				if (!data.max_redemptions || data.max_redemptions <= 0) {
 					return res.status(400).json('max_redemptions is required and must be > 0 for multi_use coupons');
 				}
+			} else if (data.coupon_usage_type === 'single_use') {
+				data.max_redemptions = 1;
 			} else {
 				data.max_redemptions = null;
 			}
@@ -91,6 +96,8 @@ module.exports = {
 				if (!data.max_redemptions || data.max_redemptions <= 0) {
 					return res.status(400).json('max_redemptions is required and must be > 0 for multi_use coupons');
 				}
+			} else if (data.coupon_usage_type === 'single_use') {
+				data.max_redemptions = 1;
 			} else if (data.coupon_usage_type) {
 				data.max_redemptions = null;
 			}

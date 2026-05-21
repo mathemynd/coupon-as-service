@@ -1,9 +1,0 @@
-$kind: http-request
-name: Delete Coupon
-method: DELETE
-url: '{{baseUrl}}/api/coupons/{{couponCode}}'
-order: 6000
-queryParams:
-  - key: password
-    value: '{{password}}'
-description: 'Delete a coupon by code. Use `ALL` as the ID to delete all coupons.'

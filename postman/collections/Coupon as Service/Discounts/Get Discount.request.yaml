@@ -1,9 +1,0 @@
-$kind: http-request
-name: Get Discount
-method: GET
-url: '{{baseUrl}}/api/discounts/{{discountId}}'
-order: 3000
-queryParams:
-  - key: password
-    value: '{{password}}'
-description: Get a discount by its MongoDB ObjectId.

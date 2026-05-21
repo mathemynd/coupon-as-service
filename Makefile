@@ -62,9 +62,11 @@ studio: ## Open Prisma Studio (browser DB viewer)
 # Testing
 # ============================================
 
+REPORTER ?= default
+
 .PHONY: test
-test: ## Run all tests (48 tests, uses test DB on 5433)
-	npm test
+test: ## Run tests (make test r=verbose|dot|default)
+	DATABASE_URL=postgresql://postgres:postgres@localhost:5433/coupon_service_test npx vitest run --reporter=$(if $(r),$(r),$(REPORTER))
 
 # ============================================
 # Utilities

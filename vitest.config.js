@@ -8,6 +8,6 @@ module.exports = {
     pool: 'forks',
     maxForks: 1,
     minForks: 1,
-    reporters: ['verbose'],
+    reporters: ['default'],
   },
 };
