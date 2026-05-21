@@ -1,125 +1,167 @@
 # Coupon as Service
 
-REST API service for discount coupons/vouchers, built in Node.js.
+REST API for discount coupons/vouchers, built with Node.js, Express, and PostgreSQL.
 
-## How to Run
+## Setup
 
-Prerequisites: Docker
+Prerequisites: Docker, Node.js
 
-	# Start PostgreSQL
-	docker compose up -d
-
-	# Install dependencies
-	npm install
-
-	# Push database schema
-	npx prisma db push
-
-	# Set password used in API requests
-	export API_PASSWORD=MYPASSWORD
-
-	# Start server
-	npm start
-
-Server will default to **http://localhost:3014**
+```bash
+docker compose up -d        # Start PostgreSQL (dev on 5432, test on 5433)
+npm install                 # Install dependencies
+npx prisma db push          # Push schema to database
+export API_PASSWORD=secret  # Set API password
+npm start                   # Start server on http://localhost:3014
+```
 
 ## Testing
 
-	npm test
+```bash
+npm test                    # 48 tests against test DB on port 5433
+```
 
-Tests run against a separate PostgreSQL instance on port 5433.
+Uses Vitest + Supertest. Tests run serially against a real PostgreSQL instance.
 
-## Entities
+## Architecture
+
+```
+Client Request
+    ↓
+Express Server (app/server.js)
+    ↓
+Middleware (app/express.js) — morgan, bodyParser, cors
+    ↓
+Routes (app/routes.js)
+    ↓
+Auth (app/controllers/auth.js) — checks ?password= query param
+    ↓
+Controller (app/controllers/coupons.js | discounts.js)
+    ↓
+Prisma ORM (app/prisma.js)
+    ↓
+PostgreSQL
+```
+
+### Directory Structure
+
+```
+app/
+  server.js              # Entry point
+  app.js                 # Express bootstrap + Prisma
+  prisma.js              # PrismaClient singleton
+  config.js              # Per-env config (dev/test/prod)
+  express.js             # Middleware setup
+  routes.js              # Route definitions
+  controllers/
+    auth.js              # Password authentication middleware
+    coupons.js           # Coupon CRUD operations
+    discounts.js         # Discount CRUD operations
+prisma/
+  schema.prisma          # Generator + datasource
+  coupon.prisma          # Coupon model
+  discount.prisma        # Discount model
+test/
+  coupons.test.js        # 17 tests
+  discounts.test.js      # 16 tests
+  integration.test.js    # 8 tests (lifecycle flows)
+```
+
+## Data Models
 
 ### Coupon
 
-* `id` (string): same as `code`
-* `created` (date)
+| Field | Type | Notes |
+|-------|------|-------|
+| id | String (UUID) | Primary key |
+| code | String | Unique, uppercase |
+| email | String | Unique, partial match (e.g. "mit.edu") |
+| percent_off | Float | Percentage discount |
+| amount_off | Float | Fixed amount discount |
+| currency | String | Currency for amount_off |
+| max_redemptions | Int | Max total uses |
+| times_redeemed | Int | Current redemption count (default: 0) |
+| redeem_by | DateTime | Expiration date |
+| duration | String | 'once', 'forever', 'repeating' |
+| duration_in_months | Int | For repeating duration |
+| metadata | JSON | Arbitrary key/value pairs |
+| created | DateTime | Auto-set |
 
-**Qualifiers:**
+Either `code` or `email` identifies a coupon. If `code` is omitted on create, one is auto-generated.
 
-* `code` (string): the coupon code. Will be generated if not provided when coupon created.
-* `email` (string): a _partial_ email address (e.g. all with ".edu" in email gets the discount).
+### Discount
 
-**Constraints:**
+| Field | Type | Notes |
+|-------|------|-------|
+| id | String (UUID) | Primary key |
+| user | String | User identifier |
+| code | String | Coupon code applied |
+| start | DateTime | Auto-set |
 
-* `redeem_by` (date): Date after which the coupon can no longer be redeemed
-* `max_redemptions` (positive integer): Maximum number of times this coupon can be redeemed, in total, before it is no longer valid.
-* `times_redeemed` (positive integer or zero): Number of times this coupon has been applied to a customer.
-
-**What is rewarded:**
-
-* `percent_off` (number): Percent that will be taken off the subtotal of any invoices for this customer for the duration of the coupon. For example, a coupon with percent_off of 50 will make a kr100 invoice kr50 instead.
-* `amount_off` (number): Amount (in the currency specified) that will be taken off the subtotal of any invoices for this customer.
-* `currency` (string): If amount_off has been set, the currency of the amount to take off.
-
-### Discount (i.e. the application of a coupon to a particular user)
-
-	{
-		_id,   // discount ID (UUID string)
-		user,  // a user ID you can refer to (string)
-		code,  // coupon code (string)
-		start, // start date (date)
-	}
-
+Compound unique on `(user, code)` — a user can apply each coupon once.
 
 ## REST API
 
+All endpoints require `?password=API_PASSWORD`.
+
 ### Coupons
 
-List coupons
-
-	curl http://localhost:3014/api/coupons?password=MYPASSWORD
-
-Get coupon by code (return code `404` if not found)
-
-	curl http://localhost:3014/api/coupons/MYCOUPON?password=MYPASSWORD
-	// The '@' prefix is needed to look up an email-based coupon
-	curl http://localhost:3014/api/coupons/@mit.edu?password=MYPASSWORD
-
-Create new coupon:
-
-	curl -X POST -H "Content-Type: application/json" -d '{ "code": "MYCOUPON", "percent_off": 10 }' http://localhost:3014/api/coupons?password=MYPASSWORD
-
-	// Email-based: when creating a discount, if user's email contains "mit.edu", discount will be applied
-	curl -X POST -H "Content-Type: application/json" -d '{ "email": "mit.edu", "percent_off": 10 }' http://localhost:3014/api/coupons?password=MYPASSWORD
-
-Update coupon:
-
-	curl -X PUT -H "Content-Type: application/json" -d '{ "percent_off": 20 }' http://localhost:3014/api/coupons/MYCOUPON?password=MYPASSWORD
-
-Delete coupon:
-
-	curl -X DELETE http://localhost:3014/api/coupons/MYCOUPON?password=MYPASSWORD
-
-Delete all coupons:
-
-	curl -X DELETE http://localhost:3014/api/coupons/ALL?password=MYPASSWORD
-
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/coupons` | List all coupons |
+| GET | `/api/coupons/:id` | Get by code or `@email` |
+| POST | `/api/coupons` | Create coupon |
+| PUT | `/api/coupons/:id` | Update coupon by code |
+| DELETE | `/api/coupons/:id` | Delete by code, or `ALL` to delete everything |
 
 ### Discounts
 
-List applied discounts:
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/discounts` | List all (optional `?from=ISO_DATE` filter) |
+| GET | `/api/discounts/:id` | Get by ID |
+| POST | `/api/discounts` | Apply coupon to user (upserts) |
+| PUT | `/api/discounts/:id` | Update by ID |
+| DELETE | `/api/discounts/:id` | Delete by ID, or `ALL` to delete everything |
 
-	curl http://localhost:3014/api/discounts?password=MYPASSWORD
+### Examples
 
-Filter discounts by start date:
+```bash
+export PW="password=secret"
+export BASE="http://localhost:3014"
 
-	curl http://localhost:3014/api/discounts?password=MYPASSWORD&from=2024-01-01
+# Create coupon
+curl -X POST -H "Content-Type: application/json" \
+  -d '{"code": "SAVE20", "percent_off": 20}' \
+  "$BASE/api/coupons?$PW"
 
-Apply/create new discount:
+# Get coupon
+curl "$BASE/api/coupons/SAVE20?$PW"
 
-	curl -X POST -H "Content-Type: application/json" -d '{ "code": "MYCOUPON", "user": "user123" }' http://localhost:3014/api/discounts?password=MYPASSWORD
+# Email-based coupon
+curl -X POST -H "Content-Type: application/json" \
+  -d '{"email": "mit.edu", "percent_off": 15}' \
+  "$BASE/api/coupons?$PW"
 
-Delete discount:
+# Look up by email
+curl "$BASE/api/coupons/@mit.edu?$PW"
 
-	curl -X DELETE http://localhost:3014/api/discounts/DISCOUNT_ID?password=MYPASSWORD
+# Apply discount to user
+curl -X POST -H "Content-Type: application/json" \
+  -d '{"code": "SAVE20", "user": "user123"}' \
+  "$BASE/api/discounts?$PW"
 
-Delete all discounts:
+# List discounts
+curl "$BASE/api/discounts?$PW"
 
-	curl -X DELETE http://localhost:3014/api/discounts/ALL?password=MYPASSWORD
+# Delete coupon
+curl -X DELETE "$BASE/api/coupons/SAVE20?$PW"
+```
 
+## Environment Variables
 
-## Implementation
-
-Built on Node.js, Express, PostgreSQL, and Prisma.
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `API_PASSWORD` | API authentication password | Required |
+| `NODE_ENV` | Environment (development/test/production) | development |
+| `DATABASE_URL` | PostgreSQL connection string | See config.js |
+| `PORT` | Server port | 3014 (dev), 3000 (prod) |

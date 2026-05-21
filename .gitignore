@@ -4,5 +4,6 @@ node_modules/
 CLAUDE.md
 .env
 debts.md
+tasks.md
 
 /app/generated/prisma
