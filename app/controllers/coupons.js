@@ -1,52 +1,39 @@
 'use strict';
 
 var _ = require('lodash');
-var md5 = require('md5');
 var prisma = require('../prisma');
 
-var COUPON_FIELDS = ['code', 'email', 'redeem_by', 'max_redemptions', 'times_redeemed', 'percent_off', 'amount_off', 'currency'];
+var CREATE_FIELDS = ['code', 'coupon_usage_type', 'status', 'max_redemptions', 'start_date', 'end_date', 'metadata'];
+var UPDATE_FIELDS = ['code', 'coupon_usage_type', 'status', 'max_redemptions', 'start_date', 'end_date', 'metadata'];
 
-var pickCouponFields = function (obj) {
-	return _.pick(obj, COUPON_FIELDS);
+var pickCreateFields = function (obj) {
+	return _.pick(obj, CREATE_FIELDS);
 };
 
-var cleanUpCoupon = function (coupon) {
+var pickUpdateFields = function (obj) {
+	return _.pick(obj, UPDATE_FIELDS);
+};
+
+var prepareResponse = function (coupon) {
 	var obj = Object.assign({}, coupon);
 	delete obj['id'];
+	delete obj['is_deleted'];
 	obj.id = obj.code;
 	return obj;
 };
 
 module.exports = {
 
-	// List all Coupons
-	list: async function (req, res, next) {
-		try {
-			var coupons = await prisma.coupon.findMany({ orderBy: { code: 'asc' } });
-			_.forEach(coupons, function (coupon, index) {
-				coupons[index] = cleanUpCoupon(coupon);
-			});
-			return res.json(coupons);
-		} catch (err) {
-			return res.status(400).json(err);
-		}
-	},
-
-	// Show a Coupon
+	// Get a Coupon by code
 	read: async function (req, res, next) {
 		try {
-			var coupon;
-			if (req.params.id.indexOf('@') !== -1) {
-				var email = req.params.id.substring(1);
-				coupon = await prisma.coupon.findFirst({ where: { email: email } });
-			}
-			else {
-				coupon = await prisma.coupon.findFirst({ where: { code: req.params.id.toUpperCase() } });
-			}
+			var coupon = await prisma.coupon.findFirst({
+				where: { code: req.params.code.toUpperCase(), is_deleted: false }
+			});
 			if (!coupon) {
 				return res.status(404).json('Coupon not found');
 			}
-			return res.json(cleanUpCoupon(coupon));
+			return res.json(prepareResponse(coupon));
 		} catch (err) {
 			return res.status(400).json(err);
 		}
@@ -55,42 +42,89 @@ module.exports = {
 	// Create new Coupon
 	create: async function (req, res, next) {
 		try {
-			var data = pickCouponFields(req.body);
-			if (!data.code)
-				data.code = md5(Date.now() + Math.random());
-			data.code = data.code.toUpperCase();
+			var data = pickCreateFields(req.body);
+
+			if (!data.code) {
+				var chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+				data.code = '';
+				for (var i = 0; i < 8; i++) {
+					data.code += chars.charAt(Math.floor(Math.random() * chars.length));
+				}
+			} else {
+				data.code = data.code.toUpperCase();
+			}
+
+			if (!data.coupon_usage_type) {
+				return res.status(400).json('coupon_usage_type is required');
+			}
+
+			if (data.coupon_usage_type === 'multi_use') {
+				if (!data.max_redemptions || data.max_redemptions <= 0) {
+					return res.status(400).json('max_redemptions is required and must be > 0 for multi_use coupons');
+				}
+			} else {
+				data.max_redemptions = null;
+			}
+
+			if (data.start_date && data.end_date && new Date(data.start_date) >= new Date(data.end_date)) {
+				return res.status(400).json('start_date must be before end_date');
+			}
+
+			data.version = '1.0';
 			var coupon = await prisma.coupon.create({ data: data });
-			return res.json(cleanUpCoupon(coupon));
+			return res.json(prepareResponse(coupon));
 		} catch (err) {
 			return res.status(400).json(err);
 		}
 	},
 
-	// Update a Coupon
+	// Update a Coupon (full replace)
 	update: async function (req, res, next) {
 		try {
-			await prisma.coupon.updateMany({
-				where: { code: req.params.id.toUpperCase() },
-				data: pickCouponFields(req.body)
+			var data = pickUpdateFields(req.body);
+
+			if (data.start_date && data.end_date && new Date(data.start_date) >= new Date(data.end_date)) {
+				return res.status(400).json('start_date must be before end_date');
+			}
+
+			if (data.coupon_usage_type === 'multi_use') {
+				if (!data.max_redemptions || data.max_redemptions <= 0) {
+					return res.status(400).json('max_redemptions is required and must be > 0 for multi_use coupons');
+				}
+			} else if (data.coupon_usage_type) {
+				data.max_redemptions = null;
+			}
+
+			data.updated_date = new Date();
+
+			var result = await prisma.coupon.updateMany({
+				where: { code: req.params.code.toUpperCase(), is_deleted: false },
+				data: data
 			});
-			res.status(200).json('Updated coupon ' + req.params.id);
+
+			if (result.count === 0) {
+				return res.status(404).json('Coupon not found');
+			}
+
+			res.status(200).json('Updated coupon ' + req.params.code);
 		} catch (err) {
 			res.status(500).json(err);
 		}
 	},
 
-	// Delete a Coupon
+	// Soft delete a Coupon
 	delete: async function (req, res, next) {
 		try {
-			var where;
-			if (req.params.id === 'ALL') {
-				where = {};
+			var result = await prisma.coupon.updateMany({
+				where: { code: req.params.code.toUpperCase(), is_deleted: false },
+				data: { is_deleted: true, updated_date: new Date() }
+			});
+
+			if (result.count === 0) {
+				return res.status(404).json('Coupon not found');
 			}
-			else {
-				where = { code: req.params.id.toUpperCase() };
-			}
-			var result = await prisma.coupon.deleteMany({ where: where });
-			res.status(200).json('Deleted ' + result.count + ' coupons');
+
+			res.status(200).json('Deleted coupon ' + req.params.code);
 		} catch (err) {
 			res.status(500).json(err);
 		}
