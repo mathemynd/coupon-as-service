@@ -1,3 +1,6 @@
+DEV_DB_URL  := postgresql://postgres:postgres@localhost:5432/coupon_service_development
+TEST_DB_URL := postgresql://postgres:postgres@localhost:5433/coupon_service_test
+
 .DEFAULT_GOAL := help
 
 .PHONY: help
@@ -8,12 +11,10 @@ help: ## Show this help message
 # Setup
 # ============================================
 
-.PHONY: install
-install: ## Install dependencies
-	npm install
-
 .PHONY: setup
-setup: install db-up db-push ## Full setup (install + db + schema)
+setup: ## Full setup (install + db + schema)
+	npm install
+	@$(MAKE) db-up
 	@echo "Setup complete. Run 'make dev' to start."
 
 # ============================================
@@ -29,8 +30,12 @@ dev: ## Start server (port 3014)
 # ============================================
 
 .PHONY: db-up
-db-up: ## Start PostgreSQL (dev on 5432, test on 5433)
+db-up: ## Start PostgreSQL (dev on 5432, test on 5433) + push schema
 	docker compose up -d
+	@echo "Waiting for databases to be ready..."
+	@until docker compose exec -T postgres pg_isready -U postgres > /dev/null 2>&1; do sleep 1; done
+	@until docker compose exec -T postgres_test pg_isready -U postgres > /dev/null 2>&1; do sleep 1; done
+	@$(MAKE) db-push
 
 .PHONY: db-down
 db-down: ## Stop PostgreSQL
@@ -41,22 +46,20 @@ db-logs: ## View database logs
 	docker compose logs -f
 
 .PHONY: db-push
-db-push: ## Push Prisma schema to database
-	npx prisma db push
+db-push: ## Push Prisma schema to dev + test databases
+	DATABASE_URL="$(DEV_DB_URL)" npx prisma db push
+	DATABASE_URL="$(TEST_DB_URL)" npx prisma db push
 
 .PHONY: db-reset
 db-reset: ## Reset database (WARNING: deletes all data)
 	@echo "This will delete ALL data. Press Ctrl+C to cancel..."
 	@sleep 3
-	npx prisma db push --force-reset
-
-.PHONY: generate
-generate: ## Regenerate Prisma client
-	npx prisma generate
+	DATABASE_URL="$(DEV_DB_URL)" npx prisma db push --force-reset
+	DATABASE_URL="$(TEST_DB_URL)" npx prisma db push --force-reset
 
 .PHONY: studio
 studio: ## Open Prisma Studio (browser DB viewer)
-	npx prisma studio
+	DATABASE_URL="$(DEV_DB_URL)" npx prisma studio
 
 # ============================================
 # Testing
@@ -85,8 +88,5 @@ psql: ## Connect to dev DB via psql
 psql-test: ## Connect to test DB via psql
 	docker exec -it coupon_service_db_test psql -U postgres -d coupon_service_test
 
-.PHONY: down
-down: db-down ## Alias for db-down
-
-.PHONY: restart
-restart: down db-up ## Restart database
+.PHONY: db-restart
+db-restart: db-down db-up ## Restart database
