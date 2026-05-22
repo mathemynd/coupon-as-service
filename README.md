@@ -1,6 +1,18 @@
 # Coupon as Service
 
-REST API for coupon distribution and validation, built with Node.js, Express, and PostgreSQL.
+Production-grade REST API for coupon distribution and validation at scale — built to handle millions to billions of coupons. Node.js, Express, PostgreSQL.
+
+## Background
+
+Seeded from [weld-io/coupon-service](https://github.com/weld-io/coupon-service) (a minimal Stripe-inspired Mongoose CRUD app with no tests) and rebuilt from the ground up.
+
+What changed from weld-io (everything):
+- **Schema redesigned** — removed `duration`, `duration_in_months`, `duration_ends`, `valid`; replaced Discount model entirely with CouponUsage (append-only audit table); added enums (CouponUsageType, CouponStatus), system fields (created_date, updated_date, is_deleted), soft delete
+- **Database migrated** — MongoDB/Mongoose → PostgreSQL/Prisma 7 (adapter-pg)
+- **Test suite built** — 0 → 80+ tests across 3 layers (controller, integration, e2e) using Vitest + Supertest
+- **Build system replaced** — Grunt → Make
+- **Architecture added** — schema-validated config, field whitelisting, response shaping, Swagger UI, Docker Compose
+- **API surface changed** — removed list-all, added redeem flow with validation (status, date windows, usage type caps), redemption history endpoints
 
 ## Setup
 
@@ -24,11 +36,11 @@ make test r=dot        # Most compact
 
 80 tests across 3 layers using Vitest + Supertest against real PostgreSQL.
 
-| Layer | What | Tests |
-|-------|------|-------|
-| Controller | Business logic, validation rules | 50 |
-| Integration | HTTP contract, status codes, auth | 22 |
-| E2E | Production scenarios, lifecycle flows | 8 |
+| Layer       | What                                  | Tests |
+| ----------- | ------------------------------------- | ----- |
+| Controller  | Business logic, validation rules      | 50    |
+| Integration | HTTP contract, status codes, auth     | 22    |
+| E2E         | Production scenarios, lifecycle flows | 8     |
 
 ## Architecture
 
@@ -83,35 +95,35 @@ tests/
 
 ### Coupon (12 fields)
 
-| Category | Field | Type | Notes |
-|----------|-------|------|-------|
-| System | id | Int | Auto-increment PK |
-| | created_date | DateTime | Auto-set |
-| | updated_date | DateTime | Auto-updated |
-| | is_deleted | Boolean | Soft delete (default false) |
-| Business | code | String | Unique, uppercase, auto-gen 8 chars if missing |
-| | version | String | Default "1.0", immutable after creation |
-| | coupon_usage_type | Enum | `single_use`, `multi_use`, `unlimited` |
-| | status | Enum | `draft`, `active`, `retired` (default draft) |
-| | max_redemptions | Int? | Required for multi_use, 1 for single_use, null for unlimited |
-| | start_date | DateTime? | Valid from |
-| | end_date | DateTime? | Valid until |
-| | metadata | JSON? | Business-defined payload |
+| Category | Field             | Type      | Notes                                                        |
+| -------- | ----------------- | --------- | ------------------------------------------------------------ |
+| System   | id                | Int       | Auto-increment PK                                            |
+|          | created_date      | DateTime  | Auto-set                                                     |
+|          | updated_date      | DateTime  | Auto-updated                                                 |
+|          | is_deleted        | Boolean   | Soft delete (default false)                                  |
+| Business | code              | String    | Unique, uppercase, auto-gen 8 chars if missing               |
+|          | version           | String    | Default "1.0", immutable after creation                      |
+|          | coupon_usage_type | Enum      | `single_use`, `multi_use`, `unlimited`                       |
+|          | status            | Enum      | `draft`, `active`, `retired` (default draft)                 |
+|          | max_redemptions   | Int?      | Required for multi_use, 1 for single_use, null for unlimited |
+|          | start_date        | DateTime? | Valid from                                                   |
+|          | end_date          | DateTime? | Valid until                                                  |
+|          | metadata          | JSON?     | Business-defined payload                                     |
 
 ### CouponUsage (8 fields)
 
 Append-only audit table. Rows created via the redeem endpoint.
 
-| Category | Field | Type | Notes |
-|----------|-------|------|-------|
-| System | id | String (UUID) | PK |
-| | created_date | DateTime | Auto-set |
-| | updated_date | DateTime | Auto-updated |
-| | is_deleted | Boolean | Default false |
-| Business | code | String | Coupon code redeemed |
-| | redemption_count | Int | Running total after this redemption |
-| | redeemed_at | DateTime | Auto-set |
-| | metadata | JSON? | Business-defined |
+| Category | Field            | Type          | Notes                               |
+| -------- | ---------------- | ------------- | ----------------------------------- |
+| System   | id               | String (UUID) | PK                                  |
+|          | created_date     | DateTime      | Auto-set                            |
+|          | updated_date     | DateTime      | Auto-updated                        |
+|          | is_deleted       | Boolean       | Default false                       |
+| Business | code             | String        | Coupon code redeemed                |
+|          | redemption_count | Int           | Running total after this redemption |
+|          | redeemed_at      | DateTime      | Auto-set                            |
+|          | metadata         | JSON?         | Business-defined                    |
 
 ## REST API
 
@@ -119,20 +131,20 @@ All endpoints require `?password=API_PASSWORD`.
 
 ### Coupons
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/api/coupons/:code` | Get coupon by code |
-| POST | `/api/coupons` | Create coupon |
-| PUT | `/api/coupons/:code` | Full replace (entire payload) |
-| DELETE | `/api/coupons/:code` | Soft delete |
+| Method | Endpoint             | Description                   |
+| ------ | -------------------- | ----------------------------- |
+| GET    | `/api/coupons/:code` | Get coupon by code            |
+| POST   | `/api/coupons`       | Create coupon                 |
+| PUT    | `/api/coupons/:code` | Full replace (entire payload) |
+| DELETE | `/api/coupons/:code` | Soft delete                   |
 
 ### Redemption
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| POST | `/api/coupons/:code/redeem` | Validate and redeem coupon |
-| GET | `/api/coupons/:code/redemptions` | List redemptions for coupon |
-| GET | `/api/coupons/:code/redemptions/:id` | Get specific redemption |
+| Method | Endpoint                             | Description                 |
+| ------ | ------------------------------------ | --------------------------- |
+| POST   | `/api/coupons/:code/redeem`          | Validate and redeem coupon  |
+| GET    | `/api/coupons/:code/redemptions`     | List redemptions for coupon |
+| GET    | `/api/coupons/:code/redemptions/:id` | Get specific redemption     |
 
 ### Redemption Validation
 
@@ -176,9 +188,20 @@ curl -X DELETE "$BASE/api/coupons/SAVE20?$PW"
 
 ## Environment Variables
 
-| Variable | Description | Default |
-|----------|-------------|---------|
-| `API_PASSWORD` | API authentication password | Required |
-| `NODE_ENV` | Environment (development/test/production) | development |
-| `DATABASE_URL` | PostgreSQL connection string | See config.js |
-| `PORT` | Server port | 3014 (dev), 3000 (prod) |
+| Variable       | Description                               | Default                 |
+| -------------- | ----------------------------------------- | ----------------------- |
+| `API_PASSWORD` | API authentication password               | Required                |
+| `NODE_ENV`     | Environment (development/test/production) | development             |
+| `DATABASE_URL` | PostgreSQL connection string              | See config.js           |
+| `PORT`         | Server port                               | 3014 (dev), 3000 (prod) |
+
+## Roadmap
+
+23 items tracked in `docs/todos.md` across 4 categories:
+
+| Priority | Category     | Examples                                                                                                           |
+| -------- | ------------ | ------------------------------------------------------------------------------------------------------------------ |
+| P0       | Bugs/Gaps    | Prisma error wrapping, status enum validation, update integrity on redeemed coupons                                |
+| P0-P1    | Architecture | Request/response schema layer (Joi/Zod), separate db/business/controller layers, concurrency-safe redemption_count |
+| P0-P1    | Features     | Per-user coupon support, usage_type enum (redeem/revert), bulk creation via CSV, client tokens                     |
+| P1-P2    | Infra        | API error codes, logging, CI/CD, metrics dashboard                                                                 |
