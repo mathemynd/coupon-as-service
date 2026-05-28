@@ -12,10 +12,15 @@ help: ## Show this help message
 # ============================================
 
 .PHONY: setup
-setup: ## Full setup (install + db + schema)
+setup: ## Full setup (install + generate + db + migrations)
 	npm install
+	@$(MAKE) generate
 	@$(MAKE) db-up
 	@echo "Setup complete. Run 'make dev' to start."
+
+.PHONY: generate
+generate: ## Generate Prisma client (compile schema → JS client)
+	npx prisma generate
 
 # ============================================
 # Development
@@ -30,12 +35,12 @@ dev: ## Start server (port 3014)
 # ============================================
 
 .PHONY: db-up
-db-up: ## Start PostgreSQL (dev on 5432, test on 5433) + push schema
+db-up: ## Start PostgreSQL (dev on 5432, test on 5433) + apply migrations
 	docker compose up -d
 	@echo "Waiting for databases to be ready..."
 	@until docker compose exec -T postgres pg_isready -U postgres > /dev/null 2>&1; do sleep 1; done
 	@until docker compose exec -T postgres_test pg_isready -U postgres > /dev/null 2>&1; do sleep 1; done
-	@$(MAKE) db-push
+	@$(MAKE) db-deploy
 
 .PHONY: db-down
 db-down: ## Stop PostgreSQL
@@ -45,17 +50,31 @@ db-down: ## Stop PostgreSQL
 db-logs: ## View database logs
 	docker compose logs -f
 
+.PHONY: db-migrate
+db-migrate: ## Create + apply a new dev migration (use: make db-migrate name=add_xyz)
+	@if [ -z "$(name)" ]; then echo "Usage: make db-migrate name=<migration_name>"; exit 1; fi
+	DATABASE_URL="$(DEV_DB_URL)" npx prisma migrate dev --name $(name)
+
+.PHONY: db-deploy
+db-deploy: ## Apply pending migrations to dev + test (safe: never drops data)
+	DATABASE_URL="$(DEV_DB_URL)" npx prisma migrate deploy
+	DATABASE_URL="$(TEST_DB_URL)" npx prisma migrate deploy
+
+.PHONY: db-status
+db-status: ## Show migration status for dev DB
+	DATABASE_URL="$(DEV_DB_URL)" npx prisma migrate status
+
 .PHONY: db-push
-db-push: ## Push Prisma schema to dev + test databases
+db-push: ## Prototyping only — push schema without migration (WARNING: lossy on destructive changes)
 	DATABASE_URL="$(DEV_DB_URL)" npx prisma db push
 	DATABASE_URL="$(TEST_DB_URL)" npx prisma db push
 
 .PHONY: db-reset
-db-reset: ## Reset database (WARNING: deletes all data)
+db-reset: ## Reset database (WARNING: deletes all data, then replays migrations)
 	@echo "This will delete ALL data. Press Ctrl+C to cancel..."
 	@sleep 3
-	DATABASE_URL="$(DEV_DB_URL)" npx prisma db push --force-reset
-	DATABASE_URL="$(TEST_DB_URL)" npx prisma db push --force-reset
+	DATABASE_URL="$(DEV_DB_URL)" npx prisma migrate reset --force
+	DATABASE_URL="$(TEST_DB_URL)" npx prisma migrate reset --force
 
 .PHONY: studio
 studio: ## Open Prisma Studio (browser DB viewer)

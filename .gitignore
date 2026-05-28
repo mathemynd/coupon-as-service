@@ -4,6 +4,7 @@ coverage/
 .opencode/
 CLAUDE.md
 .env*
+!.env.example
 docs/todos.md
 docs/tasks.md
 

@@ -16,15 +16,44 @@ What changed from weld-io (everything):
 
 ## Setup
 
-Prerequisites: Docker, Node.js
+Prerequisites:
+- Docker
+- Node.js **22.x** — Prisma 7 segfaults on Node 24+. Install via `nvm`:
+  ```bash
+  nvm install 22 && nvm use   # reads .nvmrc
+  ```
 
+Then:
 ```bash
-docker compose up -d        # Start PostgreSQL (dev on 5432, test on 5433)
-npm install                 # Install dependencies
-npx prisma db push          # Push schema to database
-export API_PASSWORD=secret  # Set API password
-npm start                   # Start server on http://localhost:3014
+make setup                  # npm install + prisma generate + DBs + migrations
 ```
+
+Create env files (gitignored — see `.env.example`):
+```bash
+cp .env.example .env.development
+cp .env.example .env.test
+# Then edit .env.test: set DATABASE_URL port to 5433, API_PASSWORD=testpass, NODE_ENV=test
+```
+
+Run:
+```bash
+make dev                    # Start server on http://localhost:3014
+```
+
+## Database
+
+Migrations live in `prisma/migrations/` and are tracked in git. Schema changes go through `prisma migrate`, **not** `prisma db push` (which is destructive on schema changes).
+
+| Command | What |
+|---|---|
+| `make db-up` | Start Postgres + apply pending migrations |
+| `make db-down` | Stop Postgres |
+| `make db-migrate name=add_xyz` | Edit a `.prisma` file, then create + apply a new migration |
+| `make db-deploy` | Apply pending migrations to dev + test (safe — never drops data) |
+| `make db-status` | Show migration status for dev DB |
+| `make db-reset` | ⚠️ Wipe both DBs + replay all migrations |
+| `make db-push` | ⚠️ Prototyping only — bypasses migrations |
+| `make studio` | Open Prisma Studio (browser DB viewer) |
 
 ## Testing
 
