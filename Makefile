@@ -27,12 +27,15 @@ generate: ## Generate Prisma client (compile schema → JS client)
 # ============================================
 
 SERVER_LOG := /tmp/coupon-server.log
+SERVER_PID := /tmp/coupon-server.pid
 
 .PHONY: up
 up: ## Start server in background (default port 3014, override: make up p=44101)
 	@node -v | grep -q "^v22" || { echo "ERROR: Need Node 22 (run: nvm use). Got $$(node -v)"; exit 1; }
-	@PORT=$(if $(p),$(p),3014) nohup npm start > $(SERVER_LOG) 2>&1 & echo "Server PID: $$!"
-	@sleep 1 && tail -3 $(SERVER_LOG)
+	@PORT=$(if $(p),$(p),3014) setsid nohup npm start > $(SERVER_LOG) 2>&1 < /dev/null &
+	@sleep 1 && pgrep -f 'node app/server\.js' | head -1 > $(SERVER_PID)
+	@echo "Server PID: $$(cat $(SERVER_PID))"
+	@tail -3 $(SERVER_LOG)
 	@PORT=$(if $(p),$(p),3014); \
 	 HOST=$$(hostname -f | sed 's/\.facebook\.com/.fbinfra.net/'); \
 	 echo ""; \
@@ -46,11 +49,19 @@ up: ## Start server in background (default port 3014, override: make up p=44101)
 
 .PHONY: down
 down: ## Stop background server
-	@pkill -f 'node app/server.js' 2>/dev/null && echo "Stopped" || echo "Not running"
+	@if [ -f $(SERVER_PID) ] && kill -0 $$(cat $(SERVER_PID)) 2>/dev/null; then \
+	   kill $$(cat $(SERVER_PID)) && rm -f $(SERVER_PID) && echo "Stopped"; \
+	 else \
+	   rm -f $(SERVER_PID); echo "Not running"; \
+	 fi
 
 .PHONY: status
 status: ## Show running server process + port
-	@ps aux | grep 'node app/server' | grep -v grep || echo "Not running"
+	@if [ -f $(SERVER_PID) ] && kill -0 $$(cat $(SERVER_PID)) 2>/dev/null; then \
+	   ps -p $$(cat $(SERVER_PID)) -o pid,etime,cmd; \
+	 else \
+	   echo "Not running"; \
+	 fi
 
 # ============================================
 # Database
