@@ -47,7 +47,7 @@ describe('Coupons API — HTTP Contract', () => {
 				.send({ code: 'NOTYPE' })
 				.expect(400);
 
-			expect(res.body).toContain('coupon_usage_type');
+			expect(res.body.error_code).toBe('COUPON_MISSING_USAGE_TYPE');
 		});
 
 		test('3. returns 401 without password', async () => {

@@ -21,6 +21,12 @@ function mockRes() {
 	return res;
 }
 
+function mockNext() {
+	var fn = function (err) { fn.error = err; };
+	fn.error = null;
+	return fn;
+}
+
 async function createActiveCoupon(code, type, opts) {
 	var data = {
 		code: code,
@@ -39,8 +45,9 @@ async function createActiveCoupon(code, type, opts) {
 async function redeemCoupon(code, metadata) {
 	var req = mockReq({ code: code }, { metadata: metadata });
 	var res = mockRes();
-	await couponsController.redeem(req, res, function () {});
-	return res;
+	var next = mockNext();
+	await couponsController.redeem(req, res, next);
+	return { res: res, next: next };
 }
 
 describe('CouponUsages Controller', () => {
@@ -65,87 +72,93 @@ describe('CouponUsages Controller', () => {
 
 		test('1. redeems active single_use coupon', async () => {
 			await createActiveCoupon('SINGLE1', 'single_use');
-			var res = await redeemCoupon('SINGLE1');
+			var result = await redeemCoupon('SINGLE1');
 
-			expect(res.statusCode).toBe(200);
-			expect(res.body.redemption_count).toBe(1);
-			expect(res.body.code).toBe('SINGLE1');
+			expect(result.res.statusCode).toBe(200);
+			expect(result.res.body.redemption_count).toBe(1);
+			expect(result.res.body.code).toBe('SINGLE1');
 		});
 
 		test('2. redeems active multi_use coupon', async () => {
 			await createActiveCoupon('MULTI1', 'multi_use', { max_redemptions: 5 });
-			var res = await redeemCoupon('MULTI1');
+			var result = await redeemCoupon('MULTI1');
 
-			expect(res.statusCode).toBe(200);
-			expect(res.body.redemption_count).toBe(1);
+			expect(result.res.statusCode).toBe(200);
+			expect(result.res.body.redemption_count).toBe(1);
 		});
 
 		test('3. redeems active unlimited coupon', async () => {
 			await createActiveCoupon('UNLIM1', 'unlimited');
-			var res = await redeemCoupon('UNLIM1');
+			var result = await redeemCoupon('UNLIM1');
 
-			expect(res.statusCode).toBe(200);
-			expect(res.body.redemption_count).toBe(1);
+			expect(result.res.statusCode).toBe(200);
+			expect(result.res.body.redemption_count).toBe(1);
 		});
 
 		test('4. rejects draft coupon', async () => {
 			await createActiveCoupon('DRAFT1', 'single_use', { status: 'draft' });
-			var res = await redeemCoupon('DRAFT1');
+			var result = await redeemCoupon('DRAFT1');
 
-			expect(res.statusCode).toBe(400);
-			expect(res.body).toContain('not active');
+			expect(result.next.error).not.toBeNull();
+			expect(result.next.error.http_response_code).toBe(400);
+			expect(result.next.error.error_code).toBe('COUPON_NOT_ACTIVE');
 		});
 
 		test('5. rejects retired coupon', async () => {
 			await createActiveCoupon('RETIRED1', 'single_use', { status: 'retired' });
-			var res = await redeemCoupon('RETIRED1');
+			var result = await redeemCoupon('RETIRED1');
 
-			expect(res.statusCode).toBe(400);
-			expect(res.body).toContain('not active');
+			expect(result.next.error).not.toBeNull();
+			expect(result.next.error.http_response_code).toBe(400);
+			expect(result.next.error.error_code).toBe('COUPON_NOT_ACTIVE');
 		});
 
 		test('6. rejects before start_date', async () => {
 			var tomorrow = new Date(Date.now() + 86400000).toISOString();
 			await createActiveCoupon('FUTURE1', 'single_use', { start_date: tomorrow });
-			var res = await redeemCoupon('FUTURE1');
+			var result = await redeemCoupon('FUTURE1');
 
-			expect(res.statusCode).toBe(400);
-			expect(res.body).toContain('not yet valid');
+			expect(result.next.error).not.toBeNull();
+			expect(result.next.error.http_response_code).toBe(400);
+			expect(result.next.error.error_code).toBe('COUPON_NOT_YET_VALID');
 		});
 
 		test('7. rejects after end_date', async () => {
 			var yesterday = new Date(Date.now() - 86400000).toISOString();
 			await createActiveCoupon('PAST1', 'single_use', { end_date: yesterday });
-			var res = await redeemCoupon('PAST1');
+			var result = await redeemCoupon('PAST1');
 
-			expect(res.statusCode).toBe(400);
-			expect(res.body).toContain('expired');
+			expect(result.next.error).not.toBeNull();
+			expect(result.next.error.http_response_code).toBe(400);
+			expect(result.next.error.error_code).toBe('COUPON_EXPIRED');
 		});
 
 		test('8. rejects single_use already redeemed', async () => {
 			await createActiveCoupon('USED1', 'single_use');
 			await redeemCoupon('USED1');
-			var res = await redeemCoupon('USED1');
+			var result = await redeemCoupon('USED1');
 
-			expect(res.statusCode).toBe(400);
-			expect(res.body).toContain('already been redeemed');
+			expect(result.next.error).not.toBeNull();
+			expect(result.next.error.http_response_code).toBe(400);
+			expect(result.next.error.error_code).toBe('COUPON_ALREADY_REDEEMED');
 		});
 
 		test('9. rejects multi_use at max_redemptions', async () => {
 			await createActiveCoupon('MAXED1', 'multi_use', { max_redemptions: 2 });
 			await redeemCoupon('MAXED1');
 			await redeemCoupon('MAXED1');
-			var res = await redeemCoupon('MAXED1');
+			var result = await redeemCoupon('MAXED1');
 
-			expect(res.statusCode).toBe(400);
-			expect(res.body).toContain('maximum redemptions');
+			expect(result.next.error).not.toBeNull();
+			expect(result.next.error.http_response_code).toBe(400);
+			expect(result.next.error.error_code).toBe('COUPON_MAX_REDEMPTIONS');
 		});
 
 		test('10. unlimited has no cap', async () => {
 			await createActiveCoupon('NOCAP1', 'unlimited');
 			for (var i = 0; i < 10; i++) {
-				var res = await redeemCoupon('NOCAP1');
-				expect(res.statusCode).toBe(200);
+				var result = await redeemCoupon('NOCAP1');
+				expect(result.res.statusCode).toBe(200);
 			}
 		});
 
@@ -153,13 +166,13 @@ describe('CouponUsages Controller', () => {
 			await createActiveCoupon('COUNT1', 'multi_use', { max_redemptions: 5 });
 
 			var res1 = await redeemCoupon('COUNT1');
-			expect(res1.body.redemption_count).toBe(1);
+			expect(res1.res.body.redemption_count).toBe(1);
 
 			var res2 = await redeemCoupon('COUNT1');
-			expect(res2.body.redemption_count).toBe(2);
+			expect(res2.res.body.redemption_count).toBe(2);
 
 			var res3 = await redeemCoupon('COUNT1');
-			expect(res3.body.redemption_count).toBe(3);
+			expect(res3.res.body.redemption_count).toBe(3);
 		});
 
 		test('12. rejects soft-deleted coupon', async () => {
@@ -168,17 +181,19 @@ describe('CouponUsages Controller', () => {
 				where: { code: 'DELETED1' },
 				data: { is_deleted: true }
 			});
-			var res = await redeemCoupon('DELETED1');
+			var result = await redeemCoupon('DELETED1');
 
-			expect(res.statusCode).toBe(404);
+			expect(result.next.error).not.toBeNull();
+			expect(result.next.error.http_response_code).toBe(404);
+			expect(result.next.error.error_code).toBe('COUPON_NOT_FOUND');
 		});
 
 		test('13. stores metadata on usage row', async () => {
 			await createActiveCoupon('METAUSE1', 'single_use');
-			var res = await redeemCoupon('METAUSE1', { source: 'mobile', campaign: 'spring' });
+			var result = await redeemCoupon('METAUSE1', { source: 'mobile', campaign: 'spring' });
 
-			expect(res.statusCode).toBe(200);
-			expect(res.body.metadata).toEqual({ source: 'mobile', campaign: 'spring' });
+			expect(result.res.statusCode).toBe(200);
+			expect(result.res.body.metadata).toEqual({ source: 'mobile', campaign: 'spring' });
 		});
 	});
 
@@ -191,7 +206,7 @@ describe('CouponUsages Controller', () => {
 
 			var req = mockReq({ code: 'LIST1' });
 			var res = mockRes();
-			await couponUsagesController.list(req, res, function () {});
+			await couponUsagesController.list(req, res, mockNext());
 
 			expect(res.statusCode).toBe(200);
 			expect(res.body).toHaveLength(2);
@@ -202,7 +217,7 @@ describe('CouponUsages Controller', () => {
 
 			var req = mockReq({ code: 'EMPTY1' });
 			var res = mockRes();
-			await couponUsagesController.list(req, res, function () {});
+			await couponUsagesController.list(req, res, mockNext());
 
 			expect(res.statusCode).toBe(200);
 			expect(res.body).toHaveLength(0);
@@ -216,7 +231,7 @@ describe('CouponUsages Controller', () => {
 
 			var req = mockReq({ code: 'ORDER1' });
 			var res = mockRes();
-			await couponUsagesController.list(req, res, function () {});
+			await couponUsagesController.list(req, res, mockNext());
 
 			expect(res.body[0].redemption_count).toBe(3);
 			expect(res.body[1].redemption_count).toBe(2);
@@ -235,7 +250,7 @@ describe('CouponUsages Controller', () => {
 
 			var req = mockReq({ code: 'DELUSE1' });
 			var res = mockRes();
-			await couponUsagesController.list(req, res, function () {});
+			await couponUsagesController.list(req, res, mockNext());
 
 			expect(res.body).toHaveLength(0);
 		});
@@ -245,12 +260,12 @@ describe('CouponUsages Controller', () => {
 
 		test('18. returns specific usage by ID', async () => {
 			await createActiveCoupon('GETID1', 'multi_use', { max_redemptions: 5 });
-			var redeemRes = await redeemCoupon('GETID1');
-			var usageId = redeemRes.body.id;
+			var redeemResult = await redeemCoupon('GETID1');
+			var usageId = redeemResult.res.body.id;
 
 			var req = mockReq({ code: 'GETID1', id: usageId });
 			var res = mockRes();
-			await couponUsagesController.read(req, res, function () {});
+			await couponUsagesController.read(req, res, mockNext());
 
 			expect(res.statusCode).toBe(200);
 			expect(res.body.id).toBe(usageId);
@@ -262,22 +277,41 @@ describe('CouponUsages Controller', () => {
 
 			var req = mockReq({ code: 'WRONGID1', id: '999999' });
 			var res = mockRes();
-			await couponUsagesController.read(req, res, function () {});
+			var next = mockNext();
+			await couponUsagesController.read(req, res, next);
 
-			expect(res.statusCode).toBe(404);
+			expect(next.error).not.toBeNull();
+			expect(next.error.http_response_code).toBe(404);
+			expect(next.error.error_code).toBe('COUPON_REDEMPTION_NOT_FOUND');
 		});
 
-		test('20. returns 404 for ID belonging to different coupon code', async () => {
+		test('20. rejects non-numeric redemption ID', async () => {
+			await createActiveCoupon('NANID1', 'single_use');
+
+			var req = mockReq({ code: 'NANID1', id: 'abc' });
+			var res = mockRes();
+			var next = mockNext();
+			await couponUsagesController.read(req, res, next);
+
+			expect(next.error).not.toBeNull();
+			expect(next.error.http_response_code).toBe(400);
+			expect(next.error.error_code).toBe('COUPON_INVALID_REDEMPTION_ID');
+		});
+
+		test('21. returns 404 for ID belonging to different coupon code', async () => {
 			await createActiveCoupon('CODEA', 'single_use');
 			await createActiveCoupon('CODEB', 'single_use');
-			var redeemRes = await redeemCoupon('CODEA');
-			var usageId = redeemRes.body.id;
+			var redeemResult = await redeemCoupon('CODEA');
+			var usageId = redeemResult.res.body.id;
 
 			var req = mockReq({ code: 'CODEB', id: usageId });
 			var res = mockRes();
-			await couponUsagesController.read(req, res, function () {});
+			var next = mockNext();
+			await couponUsagesController.read(req, res, next);
 
-			expect(res.statusCode).toBe(404);
+			expect(next.error).not.toBeNull();
+			expect(next.error.http_response_code).toBe(404);
+			expect(next.error.error_code).toBe('COUPON_REDEMPTION_NOT_FOUND');
 		});
 	});
 });

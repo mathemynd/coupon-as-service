@@ -88,7 +88,7 @@ describe('E2E — Production Scenarios', () => {
 
 		// Second customer tries — rejected
 		var failRes = await post('/api/coupons/ONETIME50/redeem').expect(400);
-		expect(failRes.body).toContain('already been redeemed');
+		expect(failRes.body.error_code).toBe('COUPON_ALREADY_REDEEMED');
 
 		// History shows exactly 1 redemption
 		var historyRes = await get('/api/coupons/ONETIME50/redemptions').expect(200);
@@ -117,7 +117,7 @@ describe('E2E — Production Scenarios', () => {
 
 		// 4th redemption fails
 		var failRes = await post('/api/coupons/SUMMER3/redeem').expect(400);
-		expect(failRes.body).toContain('maximum redemptions');
+		expect(failRes.body.error_code).toBe('COUPON_MAX_REDEMPTIONS');
 
 		// History shows 3 entries with correct counts
 		var historyRes = await get('/api/coupons/SUMMER3/redemptions').expect(200);
@@ -155,7 +155,7 @@ describe('E2E — Production Scenarios', () => {
 
 		// Redemption fails while in draft
 		var failRes = await post('/api/coupons/STAGED/redeem').expect(400);
-		expect(failRes.body).toContain('not active');
+		expect(failRes.body.error_code).toBe('COUPON_NOT_ACTIVE');
 
 		// Business activates the coupon
 		await put('/api/coupons/STAGED', {
@@ -182,14 +182,12 @@ describe('E2E — Production Scenarios', () => {
 
 		// Business discovers pricing error and retires coupon
 		await put('/api/coupons/OOPS', {
-			coupon_usage_type: 'multi_use',
-			max_redemptions: 100,
 			status: 'retired'
 		}).expect(200);
 
 		// Further redemptions fail
 		var failRes = await post('/api/coupons/OOPS/redeem').expect(400);
-		expect(failRes.body).toContain('not active');
+		expect(failRes.body.error_code).toBe('COUPON_NOT_ACTIVE');
 
 		// History shows only the one redemption before retirement
 		var historyRes = await get('/api/coupons/OOPS/redemptions').expect(200);
@@ -209,7 +207,7 @@ describe('E2E — Production Scenarios', () => {
 
 		// Redemption before the window opens is rejected
 		var failRes = await post('/api/coupons/BLACKFRI/redeem').expect(400);
-		expect(failRes.body).toContain('not yet valid');
+		expect(failRes.body.error_code).toBe('COUPON_NOT_YET_VALID');
 	});
 
 	test('8. Expired coupon — past campaign', async () => {
@@ -224,6 +222,6 @@ describe('E2E — Production Scenarios', () => {
 		}).expect(200);
 
 		var failRes = await post('/api/coupons/EXPIRED1/redeem').expect(400);
-		expect(failRes.body).toContain('expired');
+		expect(failRes.body.error_code).toBe('COUPON_EXPIRED');
 	});
 });

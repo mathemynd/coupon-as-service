@@ -1,6 +1,7 @@
 'use strict';
 
 var config = require('../config');
+var { CodedAPIError, ERRORS } = require('../api_errors');
 
 module.exports = {
 
@@ -8,7 +9,7 @@ module.exports = {
 		if (req.query.password === config.password) {
 			return next();
 		}
-		return res.status(401).json('Unauthorized');
+		throw new CodedAPIError(ERRORS.UNAUTHORIZED);
 	}
 
 }

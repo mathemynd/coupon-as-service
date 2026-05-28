@@ -8,3 +8,4 @@ docs/todos.md
 docs/tasks.md
 
 /app/generated/prisma
+.DS_Store

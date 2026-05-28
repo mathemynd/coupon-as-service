@@ -62,7 +62,7 @@ describe('CouponUsages API — HTTP Contract', () => {
 				.send({})
 				.expect(400);
 
-			expect(res.body).toContain('not active');
+			expect(res.body.error_code).toBe('COUPON_NOT_ACTIVE');
 		});
 
 		test('3. returns 404 when coupon not found', async () => {
