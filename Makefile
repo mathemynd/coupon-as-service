@@ -16,19 +16,41 @@ setup: ## Full setup (install + generate + db + migrations)
 	npm install
 	@$(MAKE) generate
 	@$(MAKE) db-up
-	@echo "Setup complete. Run 'make dev' to start."
+	@echo "Setup complete. Run 'make up' to start the server."
 
 .PHONY: generate
 generate: ## Generate Prisma client (compile schema → JS client)
 	npx prisma generate
 
 # ============================================
-# Development
+# Server
 # ============================================
 
-.PHONY: dev
-dev: ## Start server (port 3014)
-	npm start
+SERVER_LOG := /tmp/coupon-server.log
+
+.PHONY: up
+up: ## Start server in background (default port 3014, override: make up p=44101)
+	@node -v | grep -q "^v22" || { echo "ERROR: Need Node 22 (run: nvm use). Got $$(node -v)"; exit 1; }
+	@PORT=$(if $(p),$(p),3014) nohup npm start > $(SERVER_LOG) 2>&1 & echo "Server PID: $$!"
+	@sleep 1 && tail -3 $(SERVER_LOG)
+	@PORT=$(if $(p),$(p),3014); \
+	 HOST=$$(hostname -f | sed 's/\.facebook\.com/.fbinfra.net/'); \
+	 echo ""; \
+	 echo "Swagger UI:"; \
+	 echo "  Local:    http://localhost:$$PORT/api-docs/"; \
+	 if [ "$$PORT" -ge 44100 ] && [ "$$PORT" -le 44109 ]; then \
+	   echo "  Mac:      http://$$HOST:$$PORT/api-docs/   (VPNLess WWW extension)"; \
+	 elif [ "$$PORT" -ge 44200 ] && [ "$$PORT" -le 44209 ]; then \
+	   echo "  Mac:      https://$$HOST:$$PORT/api-docs/  (VPNLess WWW extension)"; \
+	 fi
+
+.PHONY: down
+down: ## Stop background server
+	@pkill -f 'node app/server.js' 2>/dev/null && echo "Stopped" || echo "Not running"
+
+.PHONY: status
+status: ## Show running server process + port
+	@ps aux | grep 'node app/server' | grep -v grep || echo "Not running"
 
 # ============================================
 # Database
@@ -77,7 +99,14 @@ db-reset: ## Reset database (WARNING: deletes all data, then replays migrations)
 	DATABASE_URL="$(TEST_DB_URL)" npx prisma migrate reset --force
 
 .PHONY: studio
-studio: ## Open Prisma Studio (browser DB viewer)
+studio: ## Open Prisma Studio (port 5555) — prints SSH tunnel command for Mac access
+	@HOST=$$(hostname -f); \
+	 echo ""; \
+	 echo "Prisma Studio:"; \
+	 echo "  Local:  http://localhost:5555"; \
+	 echo "  Mac:    http://localhost:5555  (via SSH tunnel — run on Mac in separate terminal:)"; \
+	 echo "          ssh -L 5555:localhost:5555 $$USER@$$HOST -N"; \
+	 echo ""
 	DATABASE_URL="$(DEV_DB_URL)" npx prisma studio
 
 # ============================================
@@ -102,10 +131,3 @@ test: ## Run tests (r=verbose|dot cov=1 debug=1)
 .PHONY: psql
 psql: ## Connect to dev DB via psql
 	docker exec -it coupon_service_db psql -U postgres -d coupon_service_development
-
-.PHONY: psql-test
-psql-test: ## Connect to test DB via psql
-	docker exec -it coupon_service_db_test psql -U postgres -d coupon_service_test
-
-.PHONY: db-restart
-db-restart: db-down db-up ## Restart database

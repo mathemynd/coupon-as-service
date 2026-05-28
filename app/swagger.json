@@ -6,7 +6,7 @@
     "description": "REST API for coupon distribution and validation"
   },
   "servers": [
-    { "url": "http://localhost:3014" }
+    { "url": "/" }
   ],
   "paths": {
     "/api/coupons": {
